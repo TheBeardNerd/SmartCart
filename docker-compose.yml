@@ -94,6 +94,31 @@ services:
       - mongodb
     command: npm run dev
 
+  # User Service (Fastify)
+  user-service:
+    build:
+      context: ./services/user-service
+      dockerfile: ../../infrastructure/docker/Dockerfile.node
+    container_name: smartcart-user-service
+    environment:
+      NODE_ENV: development
+      PORT: 3002
+      DATABASE_URL: postgresql://smartcart:smartcart_dev_password@postgres:5432/smartcart
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: your-super-secret-jwt-key-change-in-production
+      JWT_EXPIRES_IN: 7d
+      REFRESH_TOKEN_SECRET: your-refresh-token-secret-change-in-production
+      REFRESH_TOKEN_EXPIRES_IN: 30d
+    ports:
+      - "3002:3002"
+    volumes:
+      - ./services/user-service:/app
+      - /app/node_modules
+    depends_on:
+      - postgres
+      - redis
+    command: npm run dev
+
   # Web Application (Next.js)
   web:
     build:

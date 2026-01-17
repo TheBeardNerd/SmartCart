@@ -265,7 +265,7 @@ GET /api/optimize/strategies
 POST /api/optimize/estimate-savings
 ```
 
-### User Service API
+### User Service API 🔐
 
 **Register User**
 ```
@@ -277,27 +277,30 @@ POST /api/auth/register
 POST /api/auth/login
 ```
 
-**Get Profile**
+**Refresh Token**
 ```
-GET /api/users/profile
-```
-
-### Order Service API
-
-**Create Order**
-```
-POST /api/orders
+POST /api/auth/refresh
 ```
 
-**Get Order History**
+**Get Current User**
 ```
-GET /api/orders/history
+GET /api/auth/me
 ```
 
-**Update Cart**
+**Update Profile**
 ```
-PUT /api/cart
+PUT /api/users/profile
 ```
+
+**Manage Addresses**
+```
+GET /api/users/addresses
+POST /api/users/addresses
+PUT /api/users/addresses/:id
+DELETE /api/users/addresses/:id
+```
+
+📖 **Full Documentation:** See [USER_SERVICE.md](docs/USER_SERVICE.md) for complete authentication flow and API reference.
 
 ## Testing
 
