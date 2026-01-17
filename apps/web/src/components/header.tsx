@@ -5,12 +5,14 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth-store';
 import { useCartStore } from '@/store/cart-store';
-import { ShoppingCart, User, LogOut, Package, Menu, X } from 'lucide-react';
+import { useWebSocket } from '@/hooks/useWebSocket';
+import { ShoppingCart, User, LogOut, Package, Menu, X, Wifi, WifiOff } from 'lucide-react';
 
 export function Header() {
   const router = useRouter();
   const { user, isAuthenticated, logout } = useAuthStore();
   const { getItemCount } = useCartStore();
+  const { isConnected } = useWebSocket();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const itemCount = getItemCount();
@@ -65,6 +67,27 @@ export function Header() {
 
             {isAuthenticated ? (
               <div className="flex items-center gap-4">
+                {/* WebSocket Status */}
+                {isAuthenticated && (
+                  <div
+                    className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs ${
+                      isConnected
+                        ? 'bg-green-50 text-green-700'
+                        : 'bg-gray-100 text-gray-500'
+                    }`}
+                    title={isConnected ? 'Real-time updates active' : 'Connecting...'}
+                  >
+                    {isConnected ? (
+                      <Wifi className="w-3 h-3" />
+                    ) : (
+                      <WifiOff className="w-3 h-3" />
+                    )}
+                    <span className="hidden sm:inline">
+                      {isConnected ? 'Live' : 'Offline'}
+                    </span>
+                  </div>
+                )}
+
                 <div className="flex items-center gap-2 px-3 py-2 bg-gray-100 rounded-lg">
                   <User className="w-4 h-4" />
                   <span className="text-sm font-medium">

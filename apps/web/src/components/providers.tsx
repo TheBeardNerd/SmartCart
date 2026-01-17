@@ -3,6 +3,8 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/store/auth-store';
+import { WebSocketProvider } from './websocket-provider';
+import { ToastContainer } from './toast-container';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -25,7 +27,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {children}
+      <WebSocketProvider>
+        {children}
+        <ToastContainer />
+      </WebSocketProvider>
     </QueryClientProvider>
   );
 }

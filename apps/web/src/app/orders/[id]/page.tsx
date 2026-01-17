@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth-store';
+import { useWebSocket } from '@/hooks/useWebSocket';
 import { ordersService } from '@/lib/api/orders';
 import { Package, MapPin, Clock, CheckCircle, XCircle, Truck } from 'lucide-react';
 
@@ -10,6 +11,7 @@ export default function OrderDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { user, isAuthenticated } = useAuthStore();
+  const { subscribe, unsubscribe } = useWebSocket();
   const [order, setOrder] = useState<any>(null);
   const [tracking, setTracking] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -25,6 +27,23 @@ export default function OrderDetailPage() {
     loadOrder();
     loadTracking();
   }, [params.id, isAuthenticated, user]);
+
+  // Subscribe to order updates via WebSocket
+  useEffect(() => {
+    const handleOrderUpdate = (data: any) => {
+      // Reload order if this is our order
+      if (order && data.orderNumber === order.orderNumber) {
+        loadOrder();
+        loadTracking();
+      }
+    };
+
+    subscribe('order:update', handleOrderUpdate);
+
+    return () => {
+      unsubscribe('order:update', handleOrderUpdate);
+    };
+  }, [order, subscribe, unsubscribe]);
 
   const loadOrder = async () => {
     try {
