@@ -1,0 +1,126 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: smartcart-postgres
+    environment:
+      POSTGRES_DB: smartcart
+      POSTGRES_USER: smartcart
+      POSTGRES_PASSWORD: smartcart_dev_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infrastructure/docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smartcart"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MongoDB Database
+  mongodb:
+    image: mongo:6
+    container_name: smartcart-mongodb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: smartcart
+      MONGO_INITDB_ROOT_PASSWORD: smartcart_dev_password
+      MONGO_INITDB_DATABASE: smartcart
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - ./infrastructure/docker/mongodb/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/smartcart --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: smartcart-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Elasticsearch (for search and analytics)
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: smartcart-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Catalog Service (Fastify)
+  catalog-service:
+    build:
+      context: ./services/catalog-service
+      dockerfile: ../../infrastructure/docker/Dockerfile.node
+    container_name: smartcart-catalog-service
+    environment:
+      NODE_ENV: development
+      PORT: 3001
+      REDIS_URL: redis://redis:6379
+      MONGODB_URL: mongodb://smartcart:smartcart_dev_password@mongodb:27017/smartcart?authSource=admin
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./services/catalog-service:/app
+      - /app/node_modules
+    depends_on:
+      - redis
+      - mongodb
+    command: npm run dev
+
+  # Web Application (Next.js)
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: ../../infrastructure/docker/Dockerfile.nextjs
+    container_name: smartcart-web
+    environment:
+      NODE_ENV: development
+      NEXT_PUBLIC_CATALOG_SERVICE_URL: http://localhost:3001
+      NEXT_PUBLIC_USER_SERVICE_URL: http://localhost:3002
+      NEXT_PUBLIC_ORDER_SERVICE_URL: http://localhost:3003
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./apps/web:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      - catalog-service
+    command: npm run dev
+
+volumes:
+  postgres_data:
+  mongodb_data:
+  redis_data:
+  elasticsearch_data:
+
+networks:
+  default:
+    name: smartcart-network
