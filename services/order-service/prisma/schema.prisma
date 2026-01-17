@@ -1,0 +1,198 @@
+// This is your Prisma schema file for Order Service
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OrderStatus {
+  PENDING           // Order created, awaiting payment
+  PAYMENT_PROCESSING // Payment in progress
+  CONFIRMED         // Payment confirmed, order accepted
+  PREPARING         // Being prepared by stores
+  READY_FOR_PICKUP  // Ready for delivery/pickup
+  OUT_FOR_DELIVERY  // In transit
+  DELIVERED         // Successfully delivered
+  CANCELLED         // Order cancelled
+  FAILED            // Order failed (payment, inventory, etc.)
+  REFUNDED          // Order refunded
+}
+
+enum FulfillmentType {
+  DELIVERY
+  PICKUP
+  CURBSIDE
+}
+
+enum PaymentStatus {
+  PENDING
+  AUTHORIZED
+  CAPTURED
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+model Order {
+  id                String         @id @default(uuid())
+  orderNumber       String         @unique @map("order_number")
+  userId            String         @map("user_id")
+
+  // Order details
+  status            OrderStatus    @default(PENDING)
+  paymentStatus     PaymentStatus  @default(PENDING) @map("payment_status")
+  fulfillmentType   FulfillmentType @map("fulfillment_type")
+
+  // Pricing
+  subtotal          Decimal        @db.Decimal(10, 2)
+  tax               Decimal        @db.Decimal(10, 2)
+  deliveryFee       Decimal        @default(0) @map("delivery_fee") @db.Decimal(10, 2)
+  serviceFee        Decimal        @default(0) @map("service_fee") @db.Decimal(10, 2)
+  discount          Decimal        @default(0) @db.Decimal(10, 2)
+  total             Decimal        @db.Decimal(10, 2)
+
+  // Delivery information
+  deliveryAddress   Json?          @map("delivery_address")
+  deliveryWindow    Json?          @map("delivery_window")
+  estimatedDelivery DateTime?      @map("estimated_delivery")
+  actualDelivery    DateTime?      @map("actual_delivery")
+
+  // Customer information
+  customerNotes     String?        @map("customer_notes") @db.Text
+  contactPhone      String?        @map("contact_phone")
+  contactEmail      String?        @map("contact_email")
+
+  // Optimization details
+  optimizationStrategy String?     @map("optimization_strategy")
+  estimatedSavings  Decimal?       @map("estimated_savings") @db.Decimal(10, 2)
+
+  // Payment details
+  paymentMethodId   String?        @map("payment_method_id")
+  paymentIntentId   String?        @map("payment_intent_id")
+
+  // Timestamps
+  createdAt         DateTime       @default(now()) @map("created_at")
+  updatedAt         DateTime       @updatedAt @map("updated_at")
+  confirmedAt       DateTime?      @map("confirmed_at")
+  cancelledAt       DateTime?      @map("cancelled_at")
+
+  // Relations
+  items             OrderItem[]
+  storeFulfillments StoreFulfillment[]
+  statusHistory     OrderStatusHistory[]
+
+  @@index([userId])
+  @@index([orderNumber])
+  @@index([status])
+  @@index([createdAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id            String   @id @default(uuid())
+  orderId       String   @map("order_id")
+
+  // Product details
+  productId     String   @map("product_id")
+  productName   String   @map("product_name")
+  productImage  String?  @map("product_image")
+  sku           String?
+
+  // Store information
+  storeId       String   @map("store_id")
+  storeName     String   @map("store_name")
+
+  // Pricing
+  quantity      Int
+  unitPrice     Decimal  @map("unit_price") @db.Decimal(10, 2)
+  subtotal      Decimal  @db.Decimal(10, 2)
+  tax           Decimal  @default(0) @db.Decimal(10, 2)
+  total         Decimal  @db.Decimal(10, 2)
+
+  // Product details
+  attributes    Json?    // Size, color, variant, etc.
+
+  // Fulfillment
+  isFulfilled   Boolean  @default(false) @map("is_fulfilled")
+  fulfilledAt   DateTime? @map("fulfilled_at")
+
+  // Substitution
+  substituteFor String?  @map("substitute_for") // Original product ID if this is a substitute
+  isSubstitute  Boolean  @default(false) @map("is_substitute")
+
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  order         Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([productId])
+  @@index([storeId])
+  @@map("order_items")
+}
+
+model StoreFulfillment {
+  id                String       @id @default(uuid())
+  orderId           String       @map("order_id")
+  storeId           String       @map("store_id")
+  storeName         String       @map("store_name")
+
+  // Fulfillment details
+  status            OrderStatus  @default(PENDING)
+  trackingNumber    String?      @map("tracking_number")
+
+  // Pricing for this store's portion
+  subtotal          Decimal      @db.Decimal(10, 2)
+  tax               Decimal      @db.Decimal(10, 2)
+  deliveryFee       Decimal      @default(0) @map("delivery_fee") @db.Decimal(10, 2)
+  total             Decimal      @db.Decimal(10, 2)
+
+  // Delivery information
+  estimatedDelivery DateTime?    @map("estimated_delivery")
+  actualDelivery    DateTime?    @map("actual_delivery")
+  deliveryWindow    Json?        @map("delivery_window")
+
+  // Store contact
+  storeContactInfo  Json?        @map("store_contact_info")
+
+  // Timestamps
+  createdAt         DateTime     @default(now()) @map("created_at")
+  updatedAt         DateTime     @updatedAt @map("updated_at")
+  preparedAt        DateTime?    @map("prepared_at")
+  dispatchedAt      DateTime?    @map("dispatched_at")
+
+  // Relations
+  order             Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([storeId])
+  @@index([status])
+  @@map("store_fulfillments")
+}
+
+model OrderStatusHistory {
+  id          String      @id @default(uuid())
+  orderId     String      @map("order_id")
+
+  fromStatus  OrderStatus? @map("from_status")
+  toStatus    OrderStatus  @map("to_status")
+
+  reason      String?
+  notes       String?      @db.Text
+
+  // Who made the change
+  changedBy   String?      @map("changed_by") // User ID or "system"
+
+  createdAt   DateTime    @default(now()) @map("created_at")
+
+  // Relations
+  order       Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([createdAt])
+  @@map("order_status_history")
+}

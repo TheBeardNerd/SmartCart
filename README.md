@@ -303,6 +303,54 @@ DELETE /api/users/addresses/:id
 
 📖 **Full Documentation:** See [USER_SERVICE.md](docs/USER_SERVICE.md) for complete authentication flow and API reference.
 
+### Order Service API 📦
+
+**Create Order**
+```
+POST /api/orders
+```
+
+**Get User Orders**
+```
+GET /api/orders?userId={userId}&limit=50&offset=0
+```
+
+**Get Order Details**
+```
+GET /api/orders/:id
+GET /api/orders/number/:orderNumber
+```
+
+**Update Order Status**
+```
+PATCH /api/orders/:id/status
+```
+
+**Cancel Order**
+```
+POST /api/orders/:id/cancel
+```
+
+**Track Order**
+```
+GET /api/orders/:id/tracking
+```
+
+**Order Status Flow**
+```
+PENDING → PAYMENT_PROCESSING → CONFIRMED → PREPARING
+  → READY_FOR_PICKUP / OUT_FOR_DELIVERY → DELIVERED
+```
+
+**Features**
+- Automatic multi-store order splitting
+- Real-time status tracking
+- Integrated notifications (email, SMS, WebSocket)
+- Delivery window scheduling
+- Order history and analytics
+
+📖 **Full Documentation:** See [ORDER_SERVICE.md](docs/ORDER_SERVICE.md) for complete order lifecycle, state machine, and API reference.
+
 ### Notification Service API 🔔
 
 **Real-time WebSocket Connection**

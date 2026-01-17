@@ -119,6 +119,38 @@ services:
       - redis
     command: npm run dev
 
+  # Order Service (NestJS)
+  order-service:
+    build:
+      context: ./services/order-service
+      dockerfile: ../../infrastructure/docker/Dockerfile.node
+    container_name: smartcart-order-service
+    environment:
+      NODE_ENV: development
+      PORT: 3003
+      DATABASE_URL: postgresql://smartcart:smartcart_dev_password@postgres:5432/smartcart_orders
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: your-super-secret-jwt-key-change-in-production
+      CATALOG_SERVICE_URL: http://catalog-service:3001
+      USER_SERVICE_URL: http://user-service:3002
+      NOTIFICATION_SERVICE_URL: http://notification-service:3004
+      DEFAULT_TAX_RATE: "0.08"
+      BASE_DELIVERY_FEE: "4.99"
+      SERVICE_FEE: "2.99"
+      FREE_DELIVERY_THRESHOLD: "35.00"
+    ports:
+      - "3003:3003"
+    volumes:
+      - ./services/order-service:/app
+      - /app/node_modules
+    depends_on:
+      - postgres
+      - redis
+      - user-service
+      - catalog-service
+      - notification-service
+    command: npm run dev
+
   # Notification Service (Express + Socket.io)
   notification-service:
     build:
@@ -163,6 +195,8 @@ services:
       - /app/.next
     depends_on:
       - catalog-service
+      - user-service
+      - order-service
       - notification-service
     command: npm run dev
 
