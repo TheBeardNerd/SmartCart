@@ -114,6 +114,7 @@ The application will be available at:
 - Catalog Service: http://localhost:3001
 - User Service: http://localhost:3002
 - Order Service: http://localhost:3003
+- Notification Service: http://localhost:3004
 
 ## Development
 
@@ -301,6 +302,55 @@ DELETE /api/users/addresses/:id
 ```
 
 📖 **Full Documentation:** See [USER_SERVICE.md](docs/USER_SERVICE.md) for complete authentication flow and API reference.
+
+### Notification Service API 🔔
+
+**Real-time WebSocket Connection**
+```javascript
+import io from 'socket.io-client';
+
+const socket = io('http://localhost:3004', {
+  auth: { token: 'your-jwt-token' }
+});
+
+// Subscribe to price updates
+socket.emit('subscribe:prices', {
+  productIds: ['prod_123', 'prod_456']
+});
+
+// Listen for price changes
+socket.on('price:update', (data) => {
+  console.log('Price updated:', data);
+});
+```
+
+**REST API Endpoints**
+```
+POST /api/notifications/price-update         # Trigger price update
+POST /api/notifications/cart-update          # Sync cart across devices
+POST /api/notifications/order-update         # Send order status update
+POST /api/notifications/order-confirmation   # Send order confirmation
+POST /api/notifications/welcome              # Send welcome notification
+POST /api/notifications/price-drop-alert     # Send price drop alert
+POST /api/notifications/broadcast            # Broadcast announcement
+GET  /api/notifications/stats                # Get service statistics
+```
+
+**WebSocket Events**
+- `price:update` - Real-time price changes
+- `cart:update` - Cart synchronization
+- `order:update` - Order status changes
+- `notification` - General notifications
+- `announcement` - System-wide broadcasts
+
+**Email & SMS Notifications**
+- Welcome emails for new users
+- Order confirmations with itemized receipts
+- Price drop alerts
+- Delivery notifications
+- Order status updates
+
+📖 **Full Documentation:** See [NOTIFICATION_SERVICE.md](docs/NOTIFICATION_SERVICE.md) for complete WebSocket API, email templates, and integration examples.
 
 ## Testing
 
