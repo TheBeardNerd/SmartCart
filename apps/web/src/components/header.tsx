@@ -62,6 +62,14 @@ export function Header() {
                     </span>
                   )}
                 </Link>
+
+                <Link
+                  href="/profile"
+                  className="text-gray-700 hover:text-green-600 font-medium flex items-center gap-2"
+                >
+                  <User className="w-4 h-4" />
+                  Profile
+                </Link>
               </>
             )}
 
@@ -168,6 +176,15 @@ export function Header() {
                         {itemCount}
                       </span>
                     )}
+                  </Link>
+
+                  <Link
+                    href="/profile"
+                    className="text-gray-700 hover:text-green-600 font-medium flex items-center gap-2"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    <User className="w-4 h-4" />
+                    Profile
                   </Link>
 
                   <div className="flex items-center gap-2 px-3 py-2 bg-gray-100 rounded-lg">
