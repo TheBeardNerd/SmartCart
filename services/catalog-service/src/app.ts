@@ -5,6 +5,7 @@ import rateLimit from '@fastify/rate-limit';
 import { config } from './config';
 import { productRoutes } from './routes/products';
 import { healthRoutes } from './routes/health';
+import { optimizationRoutes } from './routes/optimization';
 import { redisClient } from './utils/redis';
 import { mongoClient } from './utils/mongodb';
 
@@ -54,6 +55,7 @@ async function registerPlugins() {
   // Routes
   await fastify.register(healthRoutes);
   await fastify.register(productRoutes, { prefix: '/api' });
+  await fastify.register(optimizationRoutes, { prefix: '/api' });
 }
 
 // Startup sequence

@@ -180,6 +180,50 @@ SmartCart uses a microservices architecture with the following key components:
 - **recipes**: Meal planning recipes
 - **nutritional_data**: Nutritional information
 
+## Price Optimization Engine 🚀
+
+SmartCart's intelligent optimization engine analyzes your cart and finds the best combination of stores based on your priorities:
+
+### Optimization Strategies
+
+1. **Budget Optimizer** - Find absolute lowest total cost (15-25% savings)
+2. **Convenience Seeker** - Minimize stores and delivery time (5-10% savings)
+3. **Split-Cart Maximizer** - Best price for each item (10-20% savings)
+4. **Meal Planner** - Balance cost with quality (8-12% savings)
+
+### Quick Example
+
+```bash
+curl -X POST http://localhost:3001/api/optimize \
+  -H "Content-Type: application/json" \
+  -d '{
+    "cart": [
+      {"productId": "123456789012", "name": "Bananas", "quantity": 2},
+      {"productId": "234567890123", "name": "Milk", "quantity": 1}
+    ],
+    "strategy": {
+      "type": "budget",
+      "deliveryPreference": "cheapest"
+    }
+  }'
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "totalCost": 18.43,
+    "estimatedSavings": 4.52,
+    "savingsPercentage": 19.7,
+    "storeCount": 1,
+    "storeBreakdown": [...]
+  }
+}
+```
+
+📖 **Full Documentation:** See [OPTIMIZATION_ENGINE.md](docs/OPTIMIZATION_ENGINE.md) for detailed API reference and integration examples.
+
 ## API Documentation
 
 ### Catalog Service API
@@ -197,6 +241,28 @@ GET /api/products/:productId/prices
 **Check Inventory**
 ```
 GET /api/products/:productId/inventory
+```
+
+### Optimization API
+
+**Optimize Cart**
+```
+POST /api/optimize
+```
+
+**Compare Strategies**
+```
+POST /api/optimize/compare
+```
+
+**Get Available Strategies**
+```
+GET /api/optimize/strategies
+```
+
+**Estimate Savings**
+```
+POST /api/optimize/estimate-savings
 ```
 
 ### User Service API
