@@ -4,32 +4,55 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCartStore } from '@/store/cart-store';
 import { useAuthStore } from '@/store/auth-store';
-import { optimizationService } from '@/lib/api/optimization';
-import { Trash2, ShoppingCart, TrendingDown } from 'lucide-react';
+import { optimizationService, OptimizationMode, OptimizationResult } from '@/lib/api/optimization';
+import { inventoryService, StockCheckResult } from '@/lib/api/inventory';
+import { OptimizationControls } from '@/components/optimization-controls';
+import { CartBreakdown } from '@/components/cart-breakdown';
+import { SavingsCalculator } from '@/components/savings-calculator';
+import { Trash2, ShoppingCart, AlertTriangle, Loader2 } from 'lucide-react';
 
 export default function CartPage() {
   const router = useRouter();
   const { items, removeItem, updateQuantity, getSubtotal, setOptimizationResult, setSelectedStrategy } = useCartStore();
   const { user, isAuthenticated } = useAuthStore();
-  const [comparisons, setComparisons] = useState<any>(null);
+  const [optimization, setOptimization] = useState<OptimizationResult | null>(null);
+  const [selectedMode, setSelectedMode] = useState<OptimizationMode>('price');
   const [isOptimizing, setIsOptimizing] = useState(false);
-  const [selectedStrategyLocal, setSelectedStrategyLocal] = useState<string | null>(null);
+  const [stockChecks, setStockChecks] = useState<StockCheckResult[]>([]);
+  const [isCheckingStock, setIsCheckingStock] = useState(false);
+  const [stockError, setStockError] = useState<string | null>(null);
 
   const subtotal = getSubtotal();
+
+  // Auto-optimize cart when items or mode changes
+  useEffect(() => {
+    if (items.length > 0) {
+      handleOptimize();
+      checkStock();
+    } else {
+      setOptimization(null);
+      setStockChecks([]);
+    }
+  }, [items, selectedMode]);
 
   const handleOptimize = async () => {
     if (items.length === 0) return;
 
     setIsOptimizing(true);
     try {
-      const cart = items.map((item) => ({
+      const cartItems = items.map((item) => ({
         productId: item.productId,
         name: item.productName,
+        price: item.unitPrice,
+        store: item.storeName,
         quantity: item.quantity,
+        imageUrl: item.productImage,
       }));
 
-      const result = await optimizationService.compareStrategies(cart, user?.id);
-      setComparisons(result);
+      const result = await optimizationService.optimizeCart(cartItems, selectedMode);
+      setOptimization(result);
+      setOptimizationResult(result);
+      setSelectedStrategy(selectedMode);
     } catch (error) {
       console.error('Optimization failed:', error);
     } finally {
@@ -37,17 +60,52 @@ export default function CartPage() {
     }
   };
 
-  const handleSelectStrategy = (strategyType: string, result: any) => {
-    setSelectedStrategyLocal(strategyType);
-    setSelectedStrategy(strategyType);
-    setOptimizationResult(result);
+  const checkStock = async () => {
+    if (items.length === 0) return;
+
+    setIsCheckingStock(true);
+    setStockError(null);
+    try {
+      const stockItems = items.map((item) => ({
+        productId: item.productId,
+        store: item.storeName,
+        quantity: item.quantity,
+      }));
+
+      const results = await inventoryService.checkStockBatch(stockItems);
+      setStockChecks(results);
+    } catch (error: any) {
+      console.error('Stock check failed:', error);
+      setStockError(error.message);
+    } finally {
+      setIsCheckingStock(false);
+    }
   };
 
-  const handleCheckout = () => {
+  const handleModeChange = (mode: OptimizationMode) => {
+    setSelectedMode(mode);
+  };
+
+  const getStockStatus = (productId: string) => {
+    return stockChecks.find((check) => check.productId === productId);
+  };
+
+  const hasStockIssues = stockChecks.some((check) => !check.inStock);
+
+  const handleCheckout = async () => {
     if (!isAuthenticated) {
       router.push('/login?redirect=/checkout');
       return;
     }
+
+    // Final stock check before checkout
+    await checkStock();
+
+    if (hasStockIssues) {
+      alert('Some items in your cart are out of stock. Please review your cart.');
+      return;
+    }
+
     router.push('/checkout');
   };
 
@@ -76,126 +134,147 @@ export default function CartPage() {
       <div className="container mx-auto px-4">
         <h1 className="text-3xl font-bold mb-8">Shopping Cart</h1>
 
+        {/* Stock Error Alert */}
+        {stockError && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5" />
+              <p className="font-semibold">Stock Check Failed</p>
+            </div>
+            <p className="text-sm mt-1">{stockError}</p>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Cart Items */}
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 space-y-6">
+            {/* Current Cart Items */}
             <div className="bg-white rounded-lg shadow-sm">
               <div className="p-6">
                 <h2 className="text-xl font-semibold mb-4">Items ({items.length})</h2>
 
+                {isCheckingStock && (
+                  <div className="flex items-center gap-2 text-sm text-gray-600 mb-4">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Checking stock availability...</span>
+                  </div>
+                )}
+
                 <div className="space-y-4">
-                  {items.map((item) => (
-                    <div
-                      key={`${item.productId}-${item.storeId}`}
-                      className="flex items-center gap-4 py-4 border-b last:border-b-0"
-                    >
-                      {item.productImage && (
-                        <img
-                          src={item.productImage}
-                          alt={item.productName}
-                          className="w-20 h-20 object-cover rounded-md"
-                        />
-                      )}
+                  {items.map((item) => {
+                    const stockStatus = getStockStatus(item.productId);
+                    const hasStockIssue = stockStatus && !stockStatus.inStock;
 
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-gray-900">{item.productName}</h3>
-                        <p className="text-sm text-gray-600">Store: {item.storeName}</p>
-                        <p className="text-lg font-bold text-green-600 mt-1">
-                          ${item.unitPrice.toFixed(2)}
-                        </p>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => updateQuantity(item.productId, Math.max(1, item.quantity - 1))}
-                          className="w-8 h-8 rounded-md border border-gray-300 flex items-center justify-center hover:bg-gray-50"
-                        >
-                          -
-                        </button>
-                        <span className="w-12 text-center font-semibold">{item.quantity}</span>
-                        <button
-                          onClick={() => updateQuantity(item.productId, item.quantity + 1)}
-                          className="w-8 h-8 rounded-md border border-gray-300 flex items-center justify-center hover:bg-gray-50"
-                        >
-                          +
-                        </button>
-                      </div>
-
-                      <div className="text-right">
-                        <p className="text-lg font-bold">${(item.unitPrice * item.quantity).toFixed(2)}</p>
-                      </div>
-
-                      <button
-                        onClick={() => removeItem(item.productId)}
-                        className="text-red-600 hover:text-red-700 p-2"
+                    return (
+                      <div
+                        key={`${item.productId}-${item.storeId}`}
+                        className={`flex items-center gap-4 py-4 border-b last:border-b-0 ${
+                          hasStockIssue ? 'bg-red-50 -mx-4 px-4 rounded' : ''
+                        }`}
                       >
-                        <Trash2 className="w-5 h-5" />
-                      </button>
-                    </div>
-                  ))}
+                        {item.productImage && (
+                          <img
+                            src={item.productImage}
+                            alt={item.productName}
+                            className="w-20 h-20 object-cover rounded-md"
+                          />
+                        )}
+
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-gray-900">{item.productName}</h3>
+                          <p className="text-sm text-gray-600">Store: {item.storeName}</p>
+                          <p className="text-lg font-bold text-green-600 mt-1">
+                            ${item.unitPrice.toFixed(2)}
+                          </p>
+
+                          {/* Stock Warning */}
+                          {hasStockIssue && (
+                            <div className="flex items-center gap-1 mt-2 text-red-600 text-sm font-medium">
+                              <AlertTriangle className="w-4 h-4" />
+                              <span>
+                                Only {stockStatus.available} available (requested {stockStatus.requested})
+                              </span>
+                            </div>
+                          )}
+                          {stockStatus && stockStatus.status === 'LOW_STOCK' && stockStatus.inStock && (
+                            <div className="flex items-center gap-1 mt-2 text-orange-600 text-sm">
+                              <AlertTriangle className="w-4 h-4" />
+                              <span>Low stock - only {stockStatus.available} left</span>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => updateQuantity(item.productId, Math.max(1, item.quantity - 1))}
+                            className="w-8 h-8 rounded-md border border-gray-300 flex items-center justify-center hover:bg-gray-50"
+                          >
+                            -
+                          </button>
+                          <span className="w-12 text-center font-semibold">{item.quantity}</span>
+                          <button
+                            onClick={() => updateQuantity(item.productId, item.quantity + 1)}
+                            className="w-8 h-8 rounded-md border border-gray-300 flex items-center justify-center hover:bg-gray-50"
+                            disabled={stockStatus && item.quantity >= stockStatus.available}
+                          >
+                            +
+                          </button>
+                        </div>
+
+                        <div className="text-right">
+                          <p className="text-lg font-bold">${(item.unitPrice * item.quantity).toFixed(2)}</p>
+                        </div>
+
+                        <button
+                          onClick={() => removeItem(item.productId)}
+                          className="text-red-600 hover:text-red-700 p-2"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>
 
-            {/* Optimization Button */}
-            <div className="mt-6">
-              <button
-                onClick={handleOptimize}
+            {/* Optimization Controls */}
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <OptimizationControls
+                selectedMode={selectedMode}
+                onModeChange={handleModeChange}
                 disabled={isOptimizing}
-                className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-lg"
-              >
-                <TrendingDown className="w-6 h-6" />
-                {isOptimizing ? 'Optimizing...' : 'Compare Optimization Strategies'}
-              </button>
+              />
             </div>
+
+            {/* Cart Breakdown by Store */}
+            {optimization && optimization.storeGroups.length > 0 && (
+              <div className="bg-white rounded-lg shadow-sm p-6">
+                <CartBreakdown storeGroups={optimization.storeGroups} showDeliveryFees={true} />
+              </div>
+            )}
           </div>
 
-          {/* Cart Summary */}
-          <div>
-            <div className="bg-white rounded-lg shadow-sm p-6 sticky top-4">
-              <h2 className="text-xl font-semibold mb-4">Summary</h2>
+          {/* Right Sidebar */}
+          <div className="space-y-6">
+            {/* Savings Calculator */}
+            <SavingsCalculator optimization={optimization} loading={isOptimizing} />
 
-              <div className="space-y-2 mb-4">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Subtotal</span>
-                  <span className="font-semibold">${subtotal.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Tax (est.)</span>
-                  <span className="font-semibold">${(subtotal * 0.08).toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Delivery</span>
-                  <span className="font-semibold">
-                    {subtotal >= 35 ? 'FREE' : '$4.99'}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Service Fee</span>
-                  <span className="font-semibold">$2.99</span>
-                </div>
-              </div>
-
-              <div className="border-t pt-4 mb-4">
-                <div className="flex justify-between text-lg font-bold">
-                  <span>Total</span>
-                  <span>
-                    ${(
-                      subtotal +
-                      subtotal * 0.08 +
-                      (subtotal >= 35 ? 0 : 4.99) +
-                      2.99
-                    ).toFixed(2)}
-                  </span>
-                </div>
-              </div>
-
+            {/* Checkout Button */}
+            <div className="bg-white rounded-lg shadow-sm p-6">
               <button
                 onClick={handleCheckout}
-                className="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 font-semibold"
+                disabled={hasStockIssues || isCheckingStock || items.length === 0}
+                className="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition"
               >
-                Proceed to Checkout
+                {hasStockIssues ? 'Stock Issues - Cannot Checkout' : 'Proceed to Checkout'}
               </button>
+
+              {hasStockIssues && (
+                <p className="text-sm text-red-600 mt-3 text-center">
+                  Please adjust quantities or remove out-of-stock items
+                </p>
+              )}
 
               {!isAuthenticated && (
                 <p className="text-sm text-gray-600 mt-3 text-center">
@@ -205,68 +284,6 @@ export default function CartPage() {
             </div>
           </div>
         </div>
-
-        {/* Optimization Comparisons */}
-        {comparisons && (
-          <div className="mt-12">
-            <h2 className="text-2xl font-bold mb-6">Optimization Strategies</h2>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {Object.entries(comparisons).map(([strategyType, result]: [string, any]) => (
-                <div
-                  key={strategyType}
-                  className={`bg-white rounded-lg shadow-sm p-6 cursor-pointer transition-all ${
-                    selectedStrategyLocal === strategyType
-                      ? 'ring-2 ring-green-500 shadow-lg'
-                      : 'hover:shadow-md'
-                  }`}
-                  onClick={() => handleSelectStrategy(strategyType, result)}
-                >
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-bold text-lg capitalize">{strategyType.replace('-', ' ')}</h3>
-                    {result.estimatedSavings > 0 && (
-                      <span className="bg-green-100 text-green-800 text-xs font-semibold px-2 py-1 rounded">
-                        Save ${result.estimatedSavings.toFixed(2)}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Total:</span>
-                      <span className="font-semibold">${result.totalCost.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Stores:</span>
-                      <span className="font-semibold">{result.storeCount}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Savings:</span>
-                      <span className="font-semibold text-green-600">
-                        {result.savingsPercentage.toFixed(1)}%
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 pt-4 border-t">
-                    <p className="text-xs text-gray-600">
-                      {strategyType === 'budget' && 'Lowest total cost'}
-                      {strategyType === 'convenience' && 'Fewest stores'}
-                      {strategyType === 'split-cart' && 'Best price per item'}
-                      {strategyType === 'meal-plan' && 'Balance cost & quality'}
-                    </p>
-                  </div>
-
-                  {selectedStrategyLocal === strategyType && (
-                    <div className="mt-4">
-                      <span className="text-green-600 font-semibold text-sm">Selected ✓</span>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
