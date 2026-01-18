@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth-store';
 import { useCartStore } from '@/store/cart-store';
 import { useWebSocket } from '@/hooks/useWebSocket';
-import { ShoppingCart, User, LogOut, Package, Menu, X, Wifi, WifiOff, Bell, List, Heart, Tag } from 'lucide-react';
+import { ShoppingCart, User, LogOut, Package, Menu, X, Wifi, WifiOff, Bell, List, Heart, Tag, BarChart3 } from 'lucide-react';
 
 export function Header() {
   const router = useRouter();
@@ -85,6 +85,14 @@ export function Header() {
                 >
                   <Tag className="w-4 h-4" />
                   Coupons
+                </Link>
+
+                <Link
+                  href="/analytics"
+                  className="text-gray-700 hover:text-green-600 font-medium flex items-center gap-2"
+                >
+                  <BarChart3 className="w-4 h-4" />
+                  Analytics
                 </Link>
 
                 <Link
@@ -235,6 +243,15 @@ export function Header() {
                   >
                     <Tag className="w-4 h-4" />
                     Coupons
+                  </Link>
+
+                  <Link
+                    href="/analytics"
+                    className="text-gray-700 hover:text-green-600 font-medium flex items-center gap-2"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    <BarChart3 className="w-4 h-4" />
+                    Analytics
                   </Link>
 
                   <Link
