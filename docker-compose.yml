@@ -175,6 +175,30 @@ services:
       - redis
     command: npm run dev
 
+  # Coupon Service (Fastify)
+  coupon-service:
+    build:
+      context: ./services/coupon-service
+      dockerfile: ../../infrastructure/docker/Dockerfile.node
+    container_name: smartcart-coupon-service
+    environment:
+      NODE_ENV: development
+      PORT: 3005
+      DATABASE_URL: postgresql://smartcart:smartcart_dev_password@postgres:5432/smartcart_coupons
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: your-super-secret-jwt-key-change-in-production
+      USER_SERVICE_URL: http://user-service:3002
+    ports:
+      - "3005:3005"
+    volumes:
+      - ./services/coupon-service:/app
+      - /app/node_modules
+    depends_on:
+      - postgres
+      - redis
+      - user-service
+    command: npm run dev
+
   # Web Application (Next.js)
   web:
     build:
@@ -187,6 +211,7 @@ services:
       NEXT_PUBLIC_USER_SERVICE_URL: http://localhost:3002
       NEXT_PUBLIC_ORDER_SERVICE_URL: http://localhost:3003
       NEXT_PUBLIC_WEBSOCKET_URL: http://localhost:3004
+      NEXT_PUBLIC_COUPON_SERVICE_URL: http://localhost:3005
     ports:
       - "3000:3000"
     volumes:
@@ -198,6 +223,7 @@ services:
       - user-service
       - order-service
       - notification-service
+      - coupon-service
     command: npm run dev
 
 volumes:

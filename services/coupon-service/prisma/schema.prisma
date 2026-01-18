@@ -1,0 +1,93 @@
+// Coupon Service Database Schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
+  BOGO          // Buy One Get One
+  FREE_SHIPPING
+}
+
+enum CouponStatus {
+  ACTIVE
+  EXPIRED
+  INACTIVE
+  DEPLETED // Usage limit reached
+}
+
+model Coupon {
+  id              String        @id @default(uuid())
+  code            String        @unique
+  title           String
+  description     String?
+  discountType    DiscountType  @map("discount_type")
+  discountValue   Decimal       @map("discount_value") // Percentage (0-100) or dollar amount
+  minPurchase     Decimal?      @map("min_purchase") // Minimum purchase amount required
+  maxDiscount     Decimal?      @map("max_discount") // Maximum discount cap (for percentage coupons)
+  store           String? // Null means applies to all stores
+  category        String? // Null means applies to all categories
+  productId       String?       @map("product_id") // Specific product, null means applies to matching criteria
+  startsAt        DateTime?     @map("starts_at")
+  expiresAt       DateTime?     @map("expires_at")
+  usageLimit      Int?          @map("usage_limit") // Total usage limit across all users
+  usageLimitPerUser Int?        @map("usage_limit_per_user") // Usage limit per user
+  usageCount      Int           @default(0) @map("usage_count")
+  status          CouponStatus  @default(ACTIVE)
+  isStackable     Boolean       @default(false) @map("is_stackable") // Can be combined with other coupons
+  isFeatured      Boolean       @default(false) @map("is_featured")
+  imageUrl        String?       @map("image_url")
+  termsAndConditions String?    @map("terms_and_conditions")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  savedBy UserCoupon[]
+  usages  CouponUsage[]
+
+  @@index([code])
+  @@index([store])
+  @@index([category])
+  @@index([productId])
+  @@index([status])
+  @@index([expiresAt])
+  @@index([isFeatured])
+  @@map("coupons")
+}
+
+model UserCoupon {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  couponId  String   @map("coupon_id")
+  savedAt   DateTime @default(now()) @map("saved_at")
+  isNotificationEnabled Boolean @default(true) @map("is_notification_enabled") // Notify before expiration
+
+  coupon Coupon @relation(fields: [couponId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, couponId])
+  @@index([userId])
+  @@index([couponId])
+  @@map("user_coupons")
+}
+
+model CouponUsage {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  couponId  String   @map("coupon_id")
+  orderId   String   @map("order_id")
+  discountAmount Decimal @map("discount_amount") // Actual discount applied
+  usedAt    DateTime @default(now()) @map("used_at")
+
+  coupon Coupon @relation(fields: [couponId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([couponId])
+  @@index([orderId])
+  @@map("coupon_usages")
+}

@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useCartStore } from '@/store/cart-store';
 import { useAuthStore } from '@/store/auth-store';
 import { ordersService } from '@/lib/api/orders';
-import { MapPin, Clock, Phone, Mail } from 'lucide-react';
+import { couponService, ApplyCouponResponse } from '@/lib/api/coupon';
+import { MapPin, Clock, Phone, Mail, Tag, X } from 'lucide-react';
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -36,11 +37,59 @@ export default function CheckoutPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
+  // Coupon state
+  const [couponCode, setCouponCode] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState<ApplyCouponResponse | null>(null);
+  const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
+  const [couponError, setCouponError] = useState('');
+
   const subtotal = getSubtotal();
-  const tax = subtotal * 0.08;
-  const deliveryFee = subtotal >= 35 ? 0 : 4.99;
+  const couponDiscount = appliedCoupon?.discountAmount || 0;
+  const subtotalAfterCoupon = subtotal - couponDiscount;
+  const tax = subtotalAfterCoupon * 0.08;
+  const deliveryFee = subtotalAfterCoupon >= 35 ? 0 : 4.99;
   const serviceFee = 2.99;
-  const total = subtotal + tax + deliveryFee + serviceFee;
+  const total = subtotalAfterCoupon + tax + deliveryFee + serviceFee;
+
+  const handleApplyCoupon = async () => {
+    if (!couponCode.trim()) {
+      setCouponError('Please enter a coupon code');
+      return;
+    }
+
+    setIsApplyingCoupon(true);
+    setCouponError('');
+
+    try {
+      // Prepare cart items for coupon validation
+      const cartItems = items.map((item) => ({
+        productId: item.productId,
+        store: item.storeName,
+        category: item.attributes?.category || '',
+        price: item.unitPrice,
+        quantity: item.quantity,
+      }));
+
+      const result = await couponService.applyCoupon({
+        code: couponCode.toUpperCase(),
+        cartItems,
+        subtotal,
+      });
+
+      setAppliedCoupon(result);
+      setCouponCode('');
+    } catch (error: any) {
+      setCouponError(error.message || 'Failed to apply coupon');
+    } finally {
+      setIsApplyingCoupon(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponCode('');
+    setCouponError('');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -358,6 +407,81 @@ export default function CheckoutPage() {
                     <span className="text-gray-600">Subtotal</span>
                     <span className="font-semibold">${subtotal.toFixed(2)}</span>
                   </div>
+
+                  {/* Coupon Section */}
+                  <div className="pt-2 pb-2 border-b border-gray-200">
+                    {!appliedCoupon ? (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Have a coupon code?
+                        </label>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={couponCode}
+                            onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleApplyCoupon();
+                              }
+                            }}
+                            placeholder="SAVE10"
+                            className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleApplyCoupon}
+                            disabled={isApplyingCoupon}
+                            className="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                          >
+                            {isApplyingCoupon ? (
+                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            ) : (
+                              <>
+                                <Tag className="w-4 h-4" />
+                                Apply
+                              </>
+                            )}
+                          </button>
+                        </div>
+                        {couponError && (
+                          <p className="text-xs text-red-600 mt-1">{couponError}</p>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="bg-green-50 border border-green-200 rounded-md p-3">
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center gap-2">
+                            <Tag className="w-4 h-4 text-green-600" />
+                            <span className="text-sm font-medium text-green-900">
+                              {appliedCoupon.coupon.code}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleRemoveCoupon}
+                            className="text-green-700 hover:text-green-900"
+                            title="Remove coupon"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                        <p className="text-xs text-green-700">{appliedCoupon.coupon.title}</p>
+                        <p className="text-xs text-green-600 mt-1">
+                          Saving ${appliedCoupon.discountAmount.toFixed(2)} on {appliedCoupon.eligibleItems} item(s)
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {appliedCoupon && (
+                    <div className="flex justify-between text-green-600">
+                      <span>Coupon Discount</span>
+                      <span className="font-semibold">-${couponDiscount.toFixed(2)}</span>
+                    </div>
+                  )}
+
                   <div className="flex justify-between">
                     <span className="text-gray-600">Tax</span>
                     <span className="font-semibold">${tax.toFixed(2)}</span>
