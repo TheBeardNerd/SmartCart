@@ -283,6 +283,37 @@ services:
       - inventory-service
     command: npm run dev
 
+  # Cart Optimization Service (Fastify)
+  cart-optimization-service:
+    build:
+      context: ./services/cart-optimization-service
+      dockerfile: ../../infrastructure/docker/Dockerfile.node
+    container_name: smartcart-cart-optimization-service
+    environment:
+      NODE_ENV: development
+      PORT: 3009
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: your-super-secret-jwt-key-change-in-production
+      CATALOG_SERVICE_URL: http://catalog-service:3001
+      INVENTORY_SERVICE_URL: http://inventory-service:3007
+      DELIVERY_SERVICE_URL: http://delivery-service:3008
+      ORDER_SERVICE_URL: http://order-service:3003
+      FREE_DELIVERY_THRESHOLD: "35.00"
+      BASE_DELIVERY_FEE: "4.99"
+      DEFAULT_OPTIMIZATION_MODE: "price"
+    ports:
+      - "3009:3009"
+    volumes:
+      - ./services/cart-optimization-service:/app
+      - /app/node_modules
+    depends_on:
+      - redis
+      - catalog-service
+      - inventory-service
+      - delivery-service
+      - order-service
+    command: npm run dev
+
   # Web Application (Next.js)
   web:
     build:
@@ -299,6 +330,7 @@ services:
       NEXT_PUBLIC_RECOMMENDATION_SERVICE_URL: http://localhost:3006
       NEXT_PUBLIC_INVENTORY_SERVICE_URL: http://localhost:3007
       NEXT_PUBLIC_DELIVERY_SERVICE_URL: http://localhost:3008
+      NEXT_PUBLIC_OPTIMIZATION_SERVICE_URL: http://localhost:3009
     ports:
       - "3000:3000"
     volumes:
@@ -313,6 +345,7 @@ services:
       - coupon-service
       - inventory-service
       - delivery-service
+      - cart-optimization-service
     command: npm run dev
 
 volumes:
