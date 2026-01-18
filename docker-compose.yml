@@ -227,6 +227,30 @@ services:
       - coupon-service
     command: npm run dev
 
+  # Inventory Service (Fastify)
+  inventory-service:
+    build:
+      context: ./services/inventory-service
+      dockerfile: ../../infrastructure/docker/Dockerfile.node
+    container_name: smartcart-inventory-service
+    environment:
+      NODE_ENV: development
+      PORT: 3007
+      DATABASE_URL: postgresql://smartcart:smartcart_dev_password@postgres:5432/smartcart_inventory
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: your-super-secret-jwt-key-change-in-production
+      STOCK_RESERVATION_EXPIRY_MINUTES: "15"
+      STOCK_LOW_THRESHOLD: "10"
+    ports:
+      - "3007:3007"
+    volumes:
+      - ./services/inventory-service:/app
+      - /app/node_modules
+    depends_on:
+      - postgres
+      - redis
+    command: npm run dev
+
   # Web Application (Next.js)
   web:
     build:
@@ -241,6 +265,7 @@ services:
       NEXT_PUBLIC_WEBSOCKET_URL: http://localhost:3004
       NEXT_PUBLIC_COUPON_SERVICE_URL: http://localhost:3005
       NEXT_PUBLIC_RECOMMENDATION_SERVICE_URL: http://localhost:3006
+      NEXT_PUBLIC_INVENTORY_SERVICE_URL: http://localhost:3007
     ports:
       - "3000:3000"
     volumes:
@@ -253,6 +278,7 @@ services:
       - order-service
       - notification-service
       - coupon-service
+      - inventory-service
     command: npm run dev
 
 volumes:

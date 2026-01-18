@@ -8,6 +8,7 @@ import { searchProducts } from '@/lib/api/products';
 import { PriceTrackingButton } from '@/components/price-tracking-button';
 import { FavoriteButton } from '@/components/favorite-button';
 import { AddToListButton } from '@/components/add-to-list-button';
+import { StockIndicator } from '@/components/stock-indicator';
 import { useCartStore } from '@/store/cart-store';
 
 export function ProductSearch() {
@@ -78,15 +79,12 @@ export function ProductSearch() {
                   <span className="text-xs bg-gray-100 px-2 py-1 rounded">
                     {product.store}
                   </span>
-                  {product.inStock ? (
-                    <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
-                      In Stock
-                    </span>
-                  ) : (
-                    <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded">
-                      Out of Stock
-                    </span>
-                  )}
+                  <StockIndicator
+                    productId={product.id}
+                    productName={product.name}
+                    store={product.store}
+                    variant="detailed"
+                  />
                 </div>
               </div>
               <div className="text-right">

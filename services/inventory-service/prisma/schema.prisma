@@ -1,0 +1,104 @@
+// Inventory Service Database Schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum StockStatus {
+  IN_STOCK
+  LOW_STOCK
+  OUT_OF_STOCK
+  DISCONTINUED
+}
+
+enum ReservationStatus {
+  ACTIVE
+  EXPIRED
+  RELEASED
+  COMPLETED
+}
+
+model Inventory {
+  id                String      @id @default(uuid())
+  productId         String      @map("product_id")
+  productName       String      @map("product_name")
+  store             String
+  quantity          Int         @default(0)
+  lowStockThreshold Int         @default(10) @map("low_stock_threshold")
+  status            StockStatus @default(OUT_OF_STOCK)
+  lastRestocked     DateTime?   @map("last_restocked")
+  lastUpdated       DateTime    @updatedAt @map("last_updated")
+  createdAt         DateTime    @default(now()) @map("created_at")
+
+  reservations      StockReservation[]
+  notifications     StockNotification[]
+  history           StockHistory[]
+
+  @@unique([productId, store])
+  @@index([productId])
+  @@index([store])
+  @@index([status])
+  @@map("inventory")
+}
+
+model StockReservation {
+  id          String            @id @default(uuid())
+  inventoryId String            @map("inventory_id")
+  userId      String            @map("user_id")
+  orderId     String?           @map("order_id")
+  quantity    Int
+  status      ReservationStatus @default(ACTIVE)
+  expiresAt   DateTime          @map("expires_at")
+  createdAt   DateTime          @default(now()) @map("created_at")
+  releasedAt  DateTime?         @map("released_at")
+
+  inventory Inventory @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
+
+  @@index([inventoryId])
+  @@index([userId])
+  @@index([orderId])
+  @@index([status])
+  @@index([expiresAt])
+  @@map("stock_reservations")
+}
+
+model StockNotification {
+  id          String    @id @default(uuid())
+  inventoryId String    @map("inventory_id")
+  userId      String    @map("user_id")
+  email       String
+  isActive    Boolean   @default(true) @map("is_active")
+  notifiedAt  DateTime? @map("notified_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  inventory Inventory @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
+
+  @@unique([inventoryId, userId])
+  @@index([userId])
+  @@index([isActive])
+  @@map("stock_notifications")
+}
+
+model StockHistory {
+  id          String   @id @default(uuid())
+  inventoryId String   @map("inventory_id")
+  action      String // RESTOCK, SALE, RESERVATION, RELEASE, ADJUSTMENT
+  quantity    Int // Can be negative for decrements
+  previousQty Int      @map("previous_qty")
+  newQty      Int      @map("new_qty")
+  reason      String?
+  userId      String?  @map("user_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  inventory Inventory @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
+
+  @@index([inventoryId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("stock_history")
+}
