@@ -6,9 +6,11 @@ import { config } from './config';
 import { authRoutes } from './routes/auth';
 import { userRoutes } from './routes/users';
 import { healthRoutes } from './routes/health';
+import { priceTrackingRoutes } from './routes/price-tracking';
 import { redisClient } from './utils/redis';
 import { PrismaClient } from '@prisma/client';
 import { cleanupExpiredTokens } from './utils/jwt';
+import { priceMonitorService } from './services/price-monitor.service';
 
 const prisma = new PrismaClient();
 
@@ -59,6 +61,7 @@ async function registerPlugins() {
   await fastify.register(healthRoutes);
   await fastify.register(authRoutes, { prefix: '/api' });
   await fastify.register(userRoutes, { prefix: '/api' });
+  await fastify.register(priceTrackingRoutes, { prefix: '/api' });
 }
 
 // Background jobs
@@ -72,6 +75,60 @@ function setupBackgroundJobs() {
       fastify.log.error('Token cleanup error:', error);
     }
   }, 60 * 60 * 1000); // 1 hour
+
+  // Check product prices every 2 hours
+  setInterval(async () => {
+    try {
+      await priceMonitorService.checkAllPrices();
+      fastify.log.info('Price check completed');
+    } catch (error) {
+      fastify.log.error('Price check error:', error);
+    }
+  }, 2 * 60 * 60 * 1000); // 2 hours
+
+  // Reset notification flags daily at 3 AM
+  const scheduleResetNotifications = () => {
+    const now = new Date();
+    const next3AM = new Date(now);
+    next3AM.setHours(3, 0, 0, 0);
+
+    if (next3AM < now) {
+      next3AM.setDate(next3AM.getDate() + 1);
+    }
+
+    const timeUntil3AM = next3AM.getTime() - now.getTime();
+
+    setTimeout(async () => {
+      try {
+        await priceMonitorService.resetNotificationFlags();
+        fastify.log.info('Notification flags reset');
+      } catch (error) {
+        fastify.log.error('Reset notification flags error:', error);
+      }
+
+      // Schedule next run (24 hours)
+      setInterval(async () => {
+        try {
+          await priceMonitorService.resetNotificationFlags();
+          fastify.log.info('Notification flags reset');
+        } catch (error) {
+          fastify.log.error('Reset notification flags error:', error);
+        }
+      }, 24 * 60 * 60 * 1000);
+    }, timeUntil3AM);
+  };
+
+  scheduleResetNotifications();
+
+  // Run initial price check after 1 minute
+  setTimeout(async () => {
+    try {
+      await priceMonitorService.checkAllPrices();
+      fastify.log.info('Initial price check completed');
+    } catch (error) {
+      fastify.log.error('Initial price check error:', error);
+    }
+  }, 60 * 1000); // 1 minute
 }
 
 // Startup sequence

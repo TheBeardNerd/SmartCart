@@ -55,6 +55,36 @@ export interface CreatePaymentMethodData {
   isDefault?: boolean;
 }
 
+export interface PriceTracking {
+  id: string;
+  userId: string;
+  productId: string;
+  productName: string;
+  store: string;
+  initialPrice: number;
+  currentPrice: number;
+  targetPrice?: number;
+  priceDropPercent?: number;
+  imageUrl?: string;
+  category?: string;
+  isActive: boolean;
+  notified: boolean;
+  lastChecked: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SubscribeToPriceDropData {
+  productId: string;
+  productName: string;
+  store: string;
+  currentPrice: number;
+  targetPrice?: number;
+  priceDropPercent?: number;
+  imageUrl?: string;
+  category?: string;
+}
+
 export const userService = {
   /**
    * Get user profile
@@ -172,6 +202,81 @@ export const userService = {
         newPassword,
       });
       return response.data;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  /**
+   * Get all price tracking subscriptions
+   */
+  async getPriceTrackings(): Promise<PriceTracking[]> {
+    try {
+      const response = await userApi.get('/api/price-tracking');
+      return response.data.data.trackings;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  /**
+   * Subscribe to price drop notifications
+   */
+  async subscribeToPriceDrop(data: SubscribeToPriceDropData): Promise<PriceTracking> {
+    try {
+      const response = await userApi.post('/api/price-tracking', data);
+      return response.data.data.tracking;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  /**
+   * Get price tracking by ID
+   */
+  async getPriceTracking(id: string): Promise<PriceTracking> {
+    try {
+      const response = await userApi.get(`/api/price-tracking/${id}`);
+      return response.data.data.tracking;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  /**
+   * Update price tracking
+   */
+  async updatePriceTracking(
+    id: string,
+    data: Partial<Pick<PriceTracking, 'targetPrice' | 'priceDropPercent' | 'isActive'>>
+  ): Promise<PriceTracking> {
+    try {
+      const response = await userApi.patch(`/api/price-tracking/${id}`, data);
+      return response.data.data.tracking;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  /**
+   * Delete price tracking subscription
+   */
+  async deletePriceTracking(id: string): Promise<void> {
+    try {
+      await userApi.delete(`/api/price-tracking/${id}`);
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  /**
+   * Check if a product is being tracked
+   */
+  async checkPriceTracking(productId: string, store?: string): Promise<{ isTracking: boolean; tracking: PriceTracking | null }> {
+    try {
+      const params = store ? { store } : {};
+      const response = await userApi.get(`/api/price-tracking/product/${productId}`, { params });
+      return response.data.data;
     } catch (error) {
       throw new Error(handleApiError(error));
     }

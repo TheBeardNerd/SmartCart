@@ -21,7 +21,19 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
       emit('subscribe:notifications', {});
       emit('subscribe:cart', {});
       emit('subscribe:orders', {});
+      emit('subscribe:price-tracking', {});
     }
+
+    // Handle price drop alerts (from price tracking)
+    const handlePriceDrop = (data: any) => {
+      console.log('💰 Price drop alert received:', data);
+
+      addNotification({
+        type: 'success',
+        title: data.title || 'Price Drop Alert!',
+        message: data.message,
+      });
+    };
 
     // Handle price updates
     const handlePriceUpdate = (data: any) => {
@@ -93,6 +105,7 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
     };
 
     // Subscribe to events
+    subscribe('price_drop', handlePriceDrop);
     subscribe('price:update', handlePriceUpdate);
     subscribe('cart:update', handleCartUpdate);
     subscribe('order:update', handleOrderUpdate);
@@ -101,6 +114,7 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
 
     // Cleanup
     return () => {
+      unsubscribe('price_drop', handlePriceDrop);
       unsubscribe('price:update', handlePriceUpdate);
       unsubscribe('cart:update', handleCartUpdate);
       unsubscribe('order:update', handleOrderUpdate);

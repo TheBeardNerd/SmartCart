@@ -5,16 +5,30 @@ import { Search, Loader2 } from 'lucide-react';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useQuery } from '@tanstack/react-query';
 import { searchProducts } from '@/lib/api/products';
+import { PriceTrackingButton } from '@/components/price-tracking-button';
+import { useCartStore } from '@/store/cart-store';
 
 export function ProductSearch() {
   const [query, setQuery] = useState('');
   const debouncedQuery = useDebounce(query, 300);
+  const { addItem } = useCartStore();
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['products', debouncedQuery],
     queryFn: () => searchProducts({ query: debouncedQuery, limit: 20 }),
     enabled: debouncedQuery.length > 0,
   });
+
+  const handleAddToCart = (product: any) => {
+    addItem({
+      productId: product.id,
+      name: product.name,
+      price: product.price,
+      store: product.store,
+      quantity: 1,
+      imageUrl: product.imageUrl,
+    });
+  };
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -77,9 +91,25 @@ export function ProductSearch() {
                 <div className="text-2xl font-bold text-green-700">
                   ${product.price.toFixed(2)}
                 </div>
-                <button className="mt-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition text-sm font-semibold">
-                  Add to Cart
-                </button>
+                <div className="mt-2 flex flex-col gap-2">
+                  <button
+                    onClick={() => handleAddToCart(product)}
+                    className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition text-sm font-semibold"
+                  >
+                    Add to Cart
+                  </button>
+                  <PriceTrackingButton
+                    product={{
+                      id: product.id,
+                      name: product.name,
+                      price: product.price,
+                      store: product.store,
+                      imageUrl: product.imageUrl,
+                      category: product.category,
+                    }}
+                    size="sm"
+                  />
+                </div>
               </div>
             </div>
           ))}

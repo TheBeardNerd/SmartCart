@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth-store';
 import { useCartStore } from '@/store/cart-store';
 import { useWebSocket } from '@/hooks/useWebSocket';
-import { ShoppingCart, User, LogOut, Package, Menu, X, Wifi, WifiOff } from 'lucide-react';
+import { ShoppingCart, User, LogOut, Package, Menu, X, Wifi, WifiOff, Bell } from 'lucide-react';
 
 export function Header() {
   const router = useRouter();
@@ -61,6 +61,14 @@ export function Header() {
                       {itemCount}
                     </span>
                   )}
+                </Link>
+
+                <Link
+                  href="/price-tracking"
+                  className="text-gray-700 hover:text-green-600 font-medium flex items-center gap-2"
+                >
+                  <Bell className="w-4 h-4" />
+                  Price Alerts
                 </Link>
 
                 <Link
@@ -176,6 +184,15 @@ export function Header() {
                         {itemCount}
                       </span>
                     )}
+                  </Link>
+
+                  <Link
+                    href="/price-tracking"
+                    className="text-gray-700 hover:text-green-600 font-medium flex items-center gap-2"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    <Bell className="w-4 h-4" />
+                    Price Alerts
                   </Link>
 
                   <Link

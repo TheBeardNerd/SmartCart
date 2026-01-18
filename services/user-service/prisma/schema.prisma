@@ -23,6 +23,7 @@ model User {
   addresses      Address[]
   paymentMethods PaymentMethod[]
   refreshTokens  RefreshToken[]
+  priceTracking  PriceTracking[]
 
   @@map("users")
 }
@@ -78,4 +79,31 @@ model RefreshToken {
   @@index([userId])
   @@index([token])
   @@map("refresh_tokens")
+}
+
+model PriceTracking {
+  id              String   @id @default(uuid())
+  userId          String   @map("user_id")
+  productId       String   @map("product_id")
+  productName     String   @map("product_name")
+  store           String
+  initialPrice    Decimal  @map("initial_price")
+  currentPrice    Decimal  @map("current_price")
+  targetPrice     Decimal? @map("target_price")
+  priceDropPercent Decimal? @default(10) @map("price_drop_percent")
+  imageUrl        String?  @map("image_url")
+  category        String?
+  isActive        Boolean  @default(true) @map("is_active")
+  notified        Boolean  @default(false)
+  lastChecked     DateTime @default(now()) @map("last_checked")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId, store])
+  @@index([userId])
+  @@index([productId])
+  @@index([isActive])
+  @@map("price_tracking")
 }
