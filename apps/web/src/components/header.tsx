@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth-store';
 import { useCartStore } from '@/store/cart-store';
 import { useWebSocket } from '@/hooks/useWebSocket';
-import { ShoppingCart, User, LogOut, Package, Menu, X, Wifi, WifiOff, Bell } from 'lucide-react';
+import { ShoppingCart, User, LogOut, Package, Menu, X, Wifi, WifiOff, Bell, List, Heart } from 'lucide-react';
 
 export function Header() {
   const router = useRouter();
@@ -61,6 +61,22 @@ export function Header() {
                       {itemCount}
                     </span>
                   )}
+                </Link>
+
+                <Link
+                  href="/lists"
+                  className="text-gray-700 hover:text-green-600 font-medium flex items-center gap-2"
+                >
+                  <List className="w-4 h-4" />
+                  Lists
+                </Link>
+
+                <Link
+                  href="/favorites"
+                  className="text-gray-700 hover:text-green-600 font-medium flex items-center gap-2"
+                >
+                  <Heart className="w-4 h-4" />
+                  Favorites
                 </Link>
 
                 <Link
@@ -184,6 +200,24 @@ export function Header() {
                         {itemCount}
                       </span>
                     )}
+                  </Link>
+
+                  <Link
+                    href="/lists"
+                    className="text-gray-700 hover:text-green-600 font-medium flex items-center gap-2"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    <List className="w-4 h-4" />
+                    Lists
+                  </Link>
+
+                  <Link
+                    href="/favorites"
+                    className="text-gray-700 hover:text-green-600 font-medium flex items-center gap-2"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    <Heart className="w-4 h-4" />
+                    Favorites
                   </Link>
 
                   <Link

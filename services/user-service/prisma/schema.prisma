@@ -24,6 +24,8 @@ model User {
   paymentMethods PaymentMethod[]
   refreshTokens  RefreshToken[]
   priceTracking  PriceTracking[]
+  shoppingLists  ShoppingList[]
+  favorites      Favorite[]
 
   @@map("users")
 }
@@ -106,4 +108,64 @@ model PriceTracking {
   @@index([productId])
   @@index([isActive])
   @@map("price_tracking")
+}
+
+model ShoppingList {
+  id          String              @id @default(uuid())
+  userId      String              @map("user_id")
+  name        String
+  description String?
+  isDefault   Boolean             @default(false) @map("is_default")
+  color       String?
+  icon        String?
+  createdAt   DateTime            @default(now()) @map("created_at")
+  updatedAt   DateTime            @updatedAt @map("updated_at")
+
+  user  User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items ShoppingListItem[]
+
+  @@index([userId])
+  @@index([isDefault])
+  @@map("shopping_lists")
+}
+
+model ShoppingListItem {
+  id          String   @id @default(uuid())
+  listId      String   @map("list_id")
+  productId   String   @map("product_id")
+  productName String   @map("product_name")
+  store       String
+  category    String?
+  imageUrl    String?  @map("image_url")
+  price       Decimal?
+  quantity    Int      @default(1)
+  checked     Boolean  @default(false)
+  notes       String?
+  addedAt     DateTime @default(now()) @map("added_at")
+
+  list ShoppingList @relation(fields: [listId], references: [id], onDelete: Cascade)
+
+  @@unique([listId, productId, store])
+  @@index([listId])
+  @@index([productId])
+  @@map("shopping_list_items")
+}
+
+model Favorite {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  productId   String   @map("product_id")
+  productName String   @map("product_name")
+  store       String
+  price       Decimal
+  imageUrl    String?  @map("image_url")
+  category    String?
+  addedAt     DateTime @default(now()) @map("added_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId, store])
+  @@index([userId])
+  @@index([productId])
+  @@map("favorites")
 }

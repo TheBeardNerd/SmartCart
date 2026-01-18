@@ -7,6 +7,8 @@ import { authRoutes } from './routes/auth';
 import { userRoutes } from './routes/users';
 import { healthRoutes } from './routes/health';
 import { priceTrackingRoutes } from './routes/price-tracking';
+import { shoppingListRoutes } from './routes/shopping-lists';
+import { favoriteRoutes } from './routes/favorites';
 import { redisClient } from './utils/redis';
 import { PrismaClient } from '@prisma/client';
 import { cleanupExpiredTokens } from './utils/jwt';
@@ -62,6 +64,8 @@ async function registerPlugins() {
   await fastify.register(authRoutes, { prefix: '/api' });
   await fastify.register(userRoutes, { prefix: '/api' });
   await fastify.register(priceTrackingRoutes, { prefix: '/api' });
+  await fastify.register(shoppingListRoutes, { prefix: '/api' });
+  await fastify.register(favoriteRoutes, { prefix: '/api' });
 }
 
 // Background jobs

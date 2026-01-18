@@ -6,6 +6,8 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { useQuery } from '@tanstack/react-query';
 import { searchProducts } from '@/lib/api/products';
 import { PriceTrackingButton } from '@/components/price-tracking-button';
+import { FavoriteButton } from '@/components/favorite-button';
+import { AddToListButton } from '@/components/add-to-list-button';
 import { useCartStore } from '@/store/cart-store';
 
 export function ProductSearch() {
@@ -98,17 +100,44 @@ export function ProductSearch() {
                   >
                     Add to Cart
                   </button>
-                  <PriceTrackingButton
-                    product={{
-                      id: product.id,
-                      name: product.name,
-                      price: product.price,
-                      store: product.store,
-                      imageUrl: product.imageUrl,
-                      category: product.category,
-                    }}
-                    size="sm"
-                  />
+                  <div className="flex items-center gap-2">
+                    <FavoriteButton
+                      product={{
+                        id: product.id,
+                        name: product.name,
+                        price: product.price,
+                        store: product.store,
+                        imageUrl: product.imageUrl,
+                        category: product.category,
+                      }}
+                      variant="icon"
+                      size="sm"
+                    />
+                    <AddToListButton
+                      product={{
+                        id: product.id,
+                        name: product.name,
+                        price: product.price,
+                        store: product.store,
+                        imageUrl: product.imageUrl,
+                        category: product.category,
+                      }}
+                      variant="icon"
+                      size="sm"
+                    />
+                    <PriceTrackingButton
+                      product={{
+                        id: product.id,
+                        name: product.name,
+                        price: product.price,
+                        store: product.store,
+                        imageUrl: product.imageUrl,
+                        category: product.category,
+                      }}
+                      variant="icon"
+                      size="sm"
+                    />
+                  </div>
                 </div>
               </div>
             </div>

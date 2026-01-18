@@ -85,6 +85,77 @@ export interface SubscribeToPriceDropData {
   category?: string;
 }
 
+export interface ShoppingList {
+  id: string;
+  userId: string;
+  name: string;
+  description?: string;
+  isDefault: boolean;
+  color?: string;
+  icon?: string;
+  createdAt: string;
+  updatedAt: string;
+  items?: ShoppingListItem[];
+  totalItems?: number;
+  checkedItems?: number;
+  completionPercentage?: number;
+}
+
+export interface ShoppingListItem {
+  id: string;
+  listId: string;
+  productId: string;
+  productName: string;
+  store: string;
+  category?: string;
+  imageUrl?: string;
+  price?: number;
+  quantity: number;
+  checked: boolean;
+  notes?: string;
+  addedAt: string;
+}
+
+export interface CreateShoppingListData {
+  name: string;
+  description?: string;
+  isDefault?: boolean;
+  color?: string;
+  icon?: string;
+}
+
+export interface AddListItemData {
+  productId: string;
+  productName: string;
+  store: string;
+  category?: string;
+  imageUrl?: string;
+  price?: number;
+  quantity?: number;
+  notes?: string;
+}
+
+export interface Favorite {
+  id: string;
+  userId: string;
+  productId: string;
+  productName: string;
+  store: string;
+  price: number;
+  imageUrl?: string;
+  category?: string;
+  addedAt: string;
+}
+
+export interface AddFavoriteData {
+  productId: string;
+  productName: string;
+  store: string;
+  price: number;
+  imageUrl?: string;
+  category?: string;
+}
+
 export const userService = {
   /**
    * Get user profile
@@ -276,6 +347,168 @@ export const userService = {
     try {
       const params = store ? { store } : {};
       const response = await userApi.get(`/api/price-tracking/product/${productId}`, { params });
+      return response.data.data;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  // ============ Shopping Lists ============
+
+  /**
+   * Get all shopping lists
+   */
+  async getShoppingLists(): Promise<ShoppingList[]> {
+    try {
+      const response = await userApi.get('/api/shopping-lists');
+      return response.data.data.lists;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  /**
+   * Create a new shopping list
+   */
+  async createShoppingList(data: CreateShoppingListData): Promise<ShoppingList> {
+    try {
+      const response = await userApi.post('/api/shopping-lists', data);
+      return response.data.data.list;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  /**
+   * Get a specific shopping list
+   */
+  async getShoppingList(id: string): Promise<ShoppingList> {
+    try {
+      const response = await userApi.get(`/api/shopping-lists/${id}`);
+      return response.data.data.list;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  /**
+   * Update a shopping list
+   */
+  async updateShoppingList(id: string, data: Partial<CreateShoppingListData>): Promise<ShoppingList> {
+    try {
+      const response = await userApi.patch(`/api/shopping-lists/${id}`, data);
+      return response.data.data.list;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  /**
+   * Delete a shopping list
+   */
+  async deleteShoppingList(id: string): Promise<void> {
+    try {
+      await userApi.delete(`/api/shopping-lists/${id}`);
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  /**
+   * Add item to shopping list
+   */
+  async addItemToList(listId: string, data: AddListItemData): Promise<ShoppingListItem> {
+    try {
+      const response = await userApi.post(`/api/shopping-lists/${listId}/items`, data);
+      return response.data.data.item;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  /**
+   * Update shopping list item
+   */
+  async updateListItem(
+    listId: string,
+    itemId: string,
+    data: Partial<Pick<ShoppingListItem, 'quantity' | 'checked' | 'notes'>>
+  ): Promise<ShoppingListItem> {
+    try {
+      const response = await userApi.patch(`/api/shopping-lists/${listId}/items/${itemId}`, data);
+      return response.data.data.item;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  /**
+   * Delete shopping list item
+   */
+  async deleteListItem(listId: string, itemId: string): Promise<void> {
+    try {
+      await userApi.delete(`/api/shopping-lists/${listId}/items/${itemId}`);
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  /**
+   * Clear all checked items from list
+   */
+  async clearCheckedItems(listId: string): Promise<{ deletedCount: number }> {
+    try {
+      const response = await userApi.post(`/api/shopping-lists/${listId}/clear-checked`);
+      return response.data.data;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  // ============ Favorites ============
+
+  /**
+   * Get all favorites
+   */
+  async getFavorites(): Promise<Favorite[]> {
+    try {
+      const response = await userApi.get('/api/favorites');
+      return response.data.data.favorites;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  /**
+   * Add to favorites
+   */
+  async addFavorite(data: AddFavoriteData): Promise<Favorite> {
+    try {
+      const response = await userApi.post('/api/favorites', data);
+      return response.data.data.favorite;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  /**
+   * Remove from favorites
+   */
+  async deleteFavorite(id: string): Promise<void> {
+    try {
+      await userApi.delete(`/api/favorites/${id}`);
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  /**
+   * Check if a product is favorited
+   */
+  async checkFavorite(productId: string, store?: string): Promise<{ isFavorite: boolean; favorite: Favorite | null }> {
+    try {
+      const params = store ? { store } : {};
+      const response = await userApi.get(`/api/favorites/check/${productId}`, { params });
       return response.data.data;
     } catch (error) {
       throw new Error(handleApiError(error));
