@@ -1,0 +1,127 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum DeliveryStatus {
+  SCHEDULED
+  PREPARING
+  READY_FOR_PICKUP
+  OUT_FOR_DELIVERY
+  DELIVERED
+  FAILED
+  CANCELLED
+}
+
+enum DeliveryPreference {
+  LEAVE_AT_DOOR
+  HAND_TO_CUSTOMER
+  SIGNATURE_REQUIRED
+  CONCIERGE
+}
+
+enum SlotType {
+  SAME_DAY
+  NEXT_DAY
+  SCHEDULED
+  EXPRESS
+}
+
+model DeliverySlot {
+  id          String   @id @default(uuid())
+  date        DateTime @map("date")
+  startTime   String   @map("start_time") // Format: "HH:MM"
+  endTime     String   @map("end_time") // Format: "HH:MM"
+  slotType    SlotType @default(SCHEDULED) @map("slot_type")
+  capacity    Int      @default(10)
+  booked      Int      @default(0)
+  price       Float    @default(0.0) // Additional fee for this slot
+  available   Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  deliveries Delivery[]
+
+  @@unique([date, startTime, endTime])
+  @@index([date, available])
+  @@map("delivery_slots")
+}
+
+model Delivery {
+  id                String             @id @default(uuid())
+  orderId           String             @unique @map("order_id")
+  userId            String             @map("user_id")
+  slotId            String?            @map("slot_id")
+  driverId          String?            @map("driver_id")
+  status            DeliveryStatus     @default(SCHEDULED)
+  preference        DeliveryPreference @default(LEAVE_AT_DOOR)
+
+  // Address information
+  addressLine1      String             @map("address_line1")
+  addressLine2      String?            @map("address_line2")
+  city              String
+  state             String
+  zipCode           String             @map("zip_code")
+
+  // Delivery details
+  deliveryInstructions String?         @map("delivery_instructions")
+  estimatedDelivery DateTime?          @map("estimated_delivery")
+  actualDelivery    DateTime?          @map("actual_delivery")
+
+  // Tracking
+  latitude          Float?
+  longitude         Float?
+
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
+
+  slot              DeliverySlot?      @relation(fields: [slotId], references: [id])
+  driver            Driver?            @relation(fields: [driverId], references: [id])
+  updates           DeliveryUpdate[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([orderId])
+  @@map("deliveries")
+}
+
+model Driver {
+  id          String   @id @default(uuid())
+  name        String
+  email       String   @unique
+  phone       String
+  vehicleType String   @map("vehicle_type")
+  licensePlate String  @map("license_plate")
+  rating      Float    @default(5.0)
+  active      Boolean  @default(true)
+
+  // Current location
+  latitude    Float?
+  longitude   Float?
+
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  deliveries  Delivery[]
+
+  @@map("drivers")
+}
+
+model DeliveryUpdate {
+  id          String         @id @default(uuid())
+  deliveryId  String         @map("delivery_id")
+  status      DeliveryStatus
+  message     String?
+  latitude    Float?
+  longitude   Float?
+  createdAt   DateTime       @default(now()) @map("created_at")
+
+  delivery    Delivery       @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+
+  @@index([deliveryId])
+  @@map("delivery_updates")
+}
