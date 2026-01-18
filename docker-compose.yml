@@ -199,6 +199,34 @@ services:
       - user-service
     command: npm run dev
 
+  # Recommendation Service (Fastify)
+  recommendation-service:
+    build:
+      context: ./services/recommendation-service
+      dockerfile: ../../infrastructure/docker/Dockerfile.node
+    container_name: smartcart-recommendation-service
+    environment:
+      NODE_ENV: development
+      PORT: 3006
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: your-super-secret-jwt-key-change-in-production
+      ORDER_SERVICE_URL: http://order-service:3003
+      USER_SERVICE_URL: http://user-service:3002
+      CATALOG_SERVICE_URL: http://catalog-service:3001
+      COUPON_SERVICE_URL: http://coupon-service:3005
+    ports:
+      - "3006:3006"
+    volumes:
+      - ./services/recommendation-service:/app
+      - /app/node_modules
+    depends_on:
+      - redis
+      - order-service
+      - user-service
+      - catalog-service
+      - coupon-service
+    command: npm run dev
+
   # Web Application (Next.js)
   web:
     build:
@@ -212,6 +240,7 @@ services:
       NEXT_PUBLIC_ORDER_SERVICE_URL: http://localhost:3003
       NEXT_PUBLIC_WEBSOCKET_URL: http://localhost:3004
       NEXT_PUBLIC_COUPON_SERVICE_URL: http://localhost:3005
+      NEXT_PUBLIC_RECOMMENDATION_SERVICE_URL: http://localhost:3006
     ports:
       - "3000:3000"
     volumes:
