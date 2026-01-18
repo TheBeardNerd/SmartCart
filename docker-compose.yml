@@ -314,6 +314,36 @@ services:
       - order-service
     command: npm run dev
 
+  # Review Service (Fastify)
+  review-service:
+    build:
+      context: ./services/review-service
+      dockerfile: ../../infrastructure/docker/Dockerfile.node
+    container_name: smartcart-review-service
+    environment:
+      NODE_ENV: development
+      PORT: 3010
+      DATABASE_URL: postgresql://smartcart:smartcart_dev_password@postgres:5432/smartcart_reviews
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: your-super-secret-jwt-key-change-in-production
+      ORDER_SERVICE_URL: http://order-service:3003
+      CATALOG_SERVICE_URL: http://catalog-service:3001
+      MAX_PHOTOS_PER_REVIEW: "5"
+      MIN_REVIEW_LENGTH: "10"
+      MAX_REVIEW_LENGTH: "5000"
+      AUTO_APPROVE_VERIFIED_PURCHASES: "true"
+    ports:
+      - "3010:3010"
+    volumes:
+      - ./services/review-service:/app
+      - /app/node_modules
+    depends_on:
+      - postgres
+      - redis
+      - order-service
+      - catalog-service
+    command: npm run dev
+
   # Web Application (Next.js)
   web:
     build:
@@ -331,6 +361,7 @@ services:
       NEXT_PUBLIC_INVENTORY_SERVICE_URL: http://localhost:3007
       NEXT_PUBLIC_DELIVERY_SERVICE_URL: http://localhost:3008
       NEXT_PUBLIC_OPTIMIZATION_SERVICE_URL: http://localhost:3009
+      NEXT_PUBLIC_REVIEW_SERVICE_URL: http://localhost:3010
     ports:
       - "3000:3000"
     volumes:
@@ -343,6 +374,7 @@ services:
       - order-service
       - notification-service
       - coupon-service
+      - review-service
       - inventory-service
       - delivery-service
       - cart-optimization-service

@@ -10,6 +10,7 @@ const RECOMMENDATION_SERVICE_URL = process.env.NEXT_PUBLIC_RECOMMENDATION_SERVIC
 const INVENTORY_SERVICE_URL = process.env.NEXT_PUBLIC_INVENTORY_SERVICE_URL || 'http://localhost:3007';
 const DELIVERY_SERVICE_URL = process.env.NEXT_PUBLIC_DELIVERY_SERVICE_URL || 'http://localhost:3008';
 const OPTIMIZATION_SERVICE_URL = process.env.NEXT_PUBLIC_OPTIMIZATION_SERVICE_URL || 'http://localhost:3009';
+const REVIEW_SERVICE_URL = process.env.NEXT_PUBLIC_REVIEW_SERVICE_URL || 'http://localhost:3010';
 
 // Create axios instances for each service
 export const catalogApi = axios.create({
@@ -84,6 +85,14 @@ export const optimizationApi = axios.create({
   },
 });
 
+export const reviewApi = axios.create({
+  baseURL: REVIEW_SERVICE_URL,
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
 // Request interceptor to add auth token
 const addAuthInterceptor = (api: typeof axios) => {
   api.interceptors.request.use(
@@ -147,7 +156,7 @@ const addResponseInterceptor = (api: typeof axios) => {
 };
 
 // Add interceptors to all APIs
-[catalogApi, userApi, orderApi, notificationApi, couponApi, recommendationApi, inventoryApi, deliveryApi, optimizationApi].forEach((api) => {
+[catalogApi, userApi, orderApi, notificationApi, couponApi, recommendationApi, inventoryApi, deliveryApi, optimizationApi, reviewApi].forEach((api) => {
   addAuthInterceptor(api);
   addResponseInterceptor(api);
 });
