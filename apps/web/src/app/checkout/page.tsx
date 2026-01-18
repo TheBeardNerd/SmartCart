@@ -1,17 +1,21 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCartStore } from '@/store/cart-store';
 import { useAuthStore } from '@/store/auth-store';
 import { ordersService } from '@/lib/api/orders';
 import { couponService, ApplyCouponResponse } from '@/lib/api/coupon';
-import { MapPin, Clock, Phone, Mail, Tag, X } from 'lucide-react';
+import { deliveryService, DeliverySlot, DeliveryPreference } from '@/lib/api/delivery';
+import { inventoryService } from '@/lib/api/inventory';
+import { MapPin, Clock, Phone, Mail, Tag, X, Truck, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { format, parseISO } from 'date-fns';
 
 export default function CheckoutPage() {
   const router = useRouter();
   const { items, optimizationResult, selectedStrategy, clearCart, getSubtotal } = useCartStore();
   const { user } = useAuthStore();
+  const reservationIdRef = useRef<string | null>(null);
 
   const [deliveryAddress, setDeliveryAddress] = useState({
     street: '',
@@ -22,11 +26,17 @@ export default function CheckoutPage() {
     instructions: '',
   });
 
-  const [deliveryWindow, setDeliveryWindow] = useState({
-    date: '',
-    startTime: '09:00',
-    endTime: '11:00',
-  });
+  // Replace manual delivery window with slot selection
+  const [deliverySlots, setDeliverySlots] = useState<DeliverySlot[]>([]);
+  const [selectedSlot, setSelectedSlot] = useState<DeliverySlot | null>(null);
+  const [deliveryPreference, setDeliveryPreference] = useState<DeliveryPreference>(
+    DeliveryPreference.LEAVE_AT_DOOR
+  );
+  const [loadingSlots, setLoadingSlots] = useState(false);
+
+  // Stock reservation state
+  const [stockReserved, setStockReserved] = useState(false);
+  const [reservationError, setReservationError] = useState<string | null>(null);
 
   const [contactInfo, setContactInfo] = useState({
     phone: user?.phone || '',
@@ -42,6 +52,51 @@ export default function CheckoutPage() {
   const [appliedCoupon, setAppliedCoupon] = useState<ApplyCouponResponse | null>(null);
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
   const [couponError, setCouponError] = useState('');
+
+  // Load delivery slots and reserve stock on mount
+  useEffect(() => {
+    loadDeliverySlots();
+    reserveStock();
+
+    // Release reservation when leaving page
+    return () => {
+      if (reservationIdRef.current) {
+        inventoryService.releaseReservation(reservationIdRef.current).catch(console.error);
+      }
+    };
+  }, []);
+
+  const loadDeliverySlots = async () => {
+    setLoadingSlots(true);
+    try {
+      const slots = await deliveryService.getAvailableSlots();
+      setDeliverySlots(slots.filter(slot => slot.available));
+    } catch (error) {
+      console.error('Failed to load delivery slots:', error);
+    } finally {
+      setLoadingSlots(false);
+    }
+  };
+
+  const reserveStock = async () => {
+    try {
+      const stockItems = items.map((item) => ({
+        productId: item.productId,
+        store: item.storeName,
+        quantity: item.quantity,
+      }));
+
+      const result = await inventoryService.reserveStock(stockItems);
+      if (result.reservations.length > 0) {
+        reservationIdRef.current = result.reservations[0].id;
+        setStockReserved(true);
+        setReservationError(null);
+      }
+    } catch (error: any) {
+      setReservationError(error.message);
+      setStockReserved(false);
+    }
+  };
 
   const subtotal = getSubtotal();
   const couponDiscount = appliedCoupon?.discountAmount || 0;
@@ -94,6 +149,19 @@ export default function CheckoutPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    // Validate stock reservation
+    if (!stockReserved) {
+      setError('Stock could not be reserved. Please try again or adjust your cart.');
+      return;
+    }
+
+    // Validate delivery slot selection
+    if (!selectedSlot) {
+      setError('Please select a delivery slot');
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -120,18 +188,36 @@ export default function CheckoutPage() {
         fulfillmentType: 'DELIVERY',
         items: orderItems,
         deliveryAddress,
-        deliveryWindow: deliveryWindow.date
-          ? {
-              startTime: `${deliveryWindow.date}T${deliveryWindow.startTime}:00Z`,
-              endTime: `${deliveryWindow.date}T${deliveryWindow.endTime}:00Z`,
-            }
-          : undefined,
+        deliveryWindow: {
+          startTime: selectedSlot.startTime,
+          endTime: selectedSlot.endTime,
+        },
         customerNotes,
         contactPhone: contactInfo.phone,
         contactEmail: contactInfo.email,
         optimizationStrategy: selectedStrategy || undefined,
         estimatedSavings: optimizationResult?.estimatedSavings,
+        couponCode: appliedCoupon?.coupon.code,
       });
+
+      // Schedule delivery with selected slot
+      await deliveryService.scheduleDelivery({
+        orderId: order.id,
+        slotId: selectedSlot.id,
+        preference: deliveryPreference,
+        addressLine1: deliveryAddress.street,
+        addressLine2: deliveryAddress.apartment,
+        city: deliveryAddress.city,
+        state: deliveryAddress.state,
+        zipCode: deliveryAddress.zipCode,
+        deliveryInstructions: deliveryAddress.instructions,
+      });
+
+      // Complete stock reservation
+      if (reservationIdRef.current) {
+        await inventoryService.completeReservation(reservationIdRef.current);
+        reservationIdRef.current = null;
+      }
 
       // Clear cart and redirect to order confirmation
       clearCart();
@@ -140,6 +226,34 @@ export default function CheckoutPage() {
       setError(err.message || 'Failed to place order');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  // Helper to group slots by date
+  const groupSlotsByDate = () => {
+    const grouped: Record<string, DeliverySlot[]> = {};
+    deliverySlots.forEach((slot) => {
+      const date = slot.date;
+      if (!grouped[date]) {
+        grouped[date] = [];
+      }
+      grouped[date].push(slot);
+    });
+    return grouped;
+  };
+
+  const getSlotTypeLabel = (type: string) => {
+    switch (type) {
+      case 'SAME_DAY':
+        return 'Same Day';
+      case 'NEXT_DAY':
+        return 'Next Day';
+      case 'EXPRESS':
+        return 'Express';
+      case 'SCHEDULED':
+        return 'Scheduled';
+      default:
+        return type;
     }
   };
 
@@ -260,67 +374,123 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
-              {/* Delivery Window */}
+              {/* Stock Reservation Status */}
+              {reservationError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="w-5 h-5 text-red-600" />
+                    <div>
+                      <p className="font-semibold text-red-800">Stock Reservation Failed</p>
+                      <p className="text-sm text-red-600 mt-1">{reservationError}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {stockReserved && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-5 h-5 text-green-600" />
+                    <p className="text-sm text-green-700">
+                      Items reserved for 15 minutes. Complete checkout to secure your order.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Delivery Slot Selection */}
               <div className="bg-white rounded-lg shadow-sm p-6">
                 <div className="flex items-center gap-2 mb-4">
                   <Clock className="w-5 h-5 text-green-600" />
-                  <h2 className="text-xl font-semibold">Delivery Window</h2>
+                  <h2 className="text-xl font-semibold">Select Delivery Slot</h2>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Date
-                    </label>
-                    <input
-                      type="date"
-                      value={deliveryWindow.date}
-                      onChange={(e) =>
-                        setDeliveryWindow({ ...deliveryWindow, date: e.target.value })
-                      }
-                      min={new Date().toISOString().split('T')[0]}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500"
-                    />
+                {loadingSlots ? (
+                  <div className="text-center py-8">
+                    <div className="inline-block w-8 h-8 border-4 border-green-600 border-t-transparent rounded-full animate-spin"></div>
+                    <p className="text-sm text-gray-600 mt-2">Loading available slots...</p>
                   </div>
+                ) : deliverySlots.length === 0 ? (
+                  <div className="text-center py-8 text-gray-600">
+                    <Clock className="w-12 h-12 mx-auto text-gray-400 mb-2" />
+                    <p>No delivery slots available. Please try again later.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {Object.entries(groupSlotsByDate()).map(([date, slots]) => (
+                      <div key={date}>
+                        <h3 className="font-semibold text-gray-900 mb-3">
+                          {format(parseISO(date), 'EEEE, MMMM d, yyyy')}
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {slots.map((slot) => (
+                            <button
+                              key={slot.id}
+                              type="button"
+                              onClick={() => setSelectedSlot(slot)}
+                              className={`p-4 border-2 rounded-lg text-left transition ${
+                                selectedSlot?.id === slot.id
+                                  ? 'border-green-600 bg-green-50'
+                                  : 'border-gray-300 hover:border-gray-400'
+                              }`}
+                            >
+                              <div className="flex items-start justify-between mb-2">
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <Clock className="w-4 h-4 text-gray-600" />
+                                    <span className="font-semibold">
+                                      {format(parseISO(slot.startTime), 'h:mm a')} -{' '}
+                                      {format(parseISO(slot.endTime), 'h:mm a')}
+                                    </span>
+                                  </div>
+                                  <span className="inline-block mt-1 text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
+                                    {getSlotTypeLabel(slot.slotType)}
+                                  </span>
+                                </div>
+                                <div className="text-right">
+                                  <p className="font-bold text-green-700">${slot.price.toFixed(2)}</p>
+                                  <p className="text-xs text-gray-500">
+                                    {slot.booked}/{slot.capacity} booked
+                                  </p>
+                                </div>
+                              </div>
+                              {selectedSlot?.id === slot.id && (
+                                <div className="mt-2 pt-2 border-t border-green-200">
+                                  <span className="text-sm text-green-700 font-medium">Selected ✓</span>
+                                </div>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Start Time
+                {/* Delivery Preference */}
+                {selectedSlot && (
+                  <div className="mt-6 pt-6 border-t border-gray-200">
+                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                      Delivery Preference
                     </label>
-                    <select
-                      value={deliveryWindow.startTime}
-                      onChange={(e) =>
-                        setDeliveryWindow({ ...deliveryWindow, startTime: e.target.value })
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500"
-                    >
-                      <option value="09:00">9:00 AM</option>
-                      <option value="11:00">11:00 AM</option>
-                      <option value="13:00">1:00 PM</option>
-                      <option value="15:00">3:00 PM</option>
-                      <option value="17:00">5:00 PM</option>
-                    </select>
+                    <div className="grid grid-cols-2 gap-3">
+                      {Object.values(DeliveryPreference).map((pref) => (
+                        <button
+                          key={pref}
+                          type="button"
+                          onClick={() => setDeliveryPreference(pref)}
+                          className={`p-3 border-2 rounded-lg text-sm transition ${
+                            deliveryPreference === pref
+                              ? 'border-green-600 bg-green-50 text-green-900'
+                              : 'border-gray-300 hover:border-gray-400'
+                          }`}
+                        >
+                          {pref.replace(/_/g, ' ')}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      End Time
-                    </label>
-                    <select
-                      value={deliveryWindow.endTime}
-                      onChange={(e) =>
-                        setDeliveryWindow({ ...deliveryWindow, endTime: e.target.value })
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500"
-                    >
-                      <option value="11:00">11:00 AM</option>
-                      <option value="13:00">1:00 PM</option>
-                      <option value="15:00">3:00 PM</option>
-                      <option value="17:00">5:00 PM</option>
-                      <option value="19:00">7:00 PM</option>
-                    </select>
-                  </div>
-                </div>
+                )}
               </div>
 
               {/* Contact Information */}
