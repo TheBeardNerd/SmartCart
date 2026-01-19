@@ -1,0 +1,126 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AdminRole {
+  SUPER_ADMIN
+  ADMIN
+  MODERATOR
+  SUPPORT
+}
+
+enum Permission {
+  // Product permissions
+  MANAGE_PRODUCTS
+  VIEW_PRODUCTS
+
+  // Inventory permissions
+  MANAGE_INVENTORY
+  VIEW_INVENTORY
+
+  // Order permissions
+  MANAGE_ORDERS
+  VIEW_ORDERS
+  REFUND_ORDERS
+
+  // User permissions
+  MANAGE_USERS
+  VIEW_USERS
+
+  // Review permissions
+  MODERATE_REVIEWS
+  VIEW_REVIEWS
+
+  // Coupon permissions
+  MANAGE_COUPONS
+  VIEW_COUPONS
+
+  // Delivery permissions
+  MANAGE_DELIVERY
+  VIEW_DELIVERY
+
+  // Analytics permissions
+  VIEW_ANALYTICS
+  EXPORT_DATA
+
+  // System permissions
+  MANAGE_ADMINS
+  VIEW_AUDIT_LOGS
+  MANAGE_SETTINGS
+}
+
+model Admin {
+  id            String      @id @default(uuid())
+  email         String      @unique
+  password      String
+  firstName     String
+  lastName      String
+  role          AdminRole   @default(ADMIN)
+  permissions   Permission[]
+  isActive      Boolean     @default(true)
+  lastLoginAt   DateTime?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  auditLogs     AuditLog[]
+
+  @@index([email])
+  @@index([role])
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  VIEW
+  EXPORT
+  LOGIN
+  LOGOUT
+}
+
+model AuditLog {
+  id          String      @id @default(uuid())
+  adminId     String
+  admin       Admin       @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  action      AuditAction
+  resource    String      // e.g., "product", "order", "user"
+  resourceId  String?     // ID of the affected resource
+  details     Json?       // Additional context
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime    @default(now())
+
+  @@index([adminId])
+  @@index([resource, resourceId])
+  @@index([createdAt])
+}
+
+model SystemSetting {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       Json
+  description String?
+  updatedBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([key])
+}
+
+// Dashboard Analytics Cache
+model DashboardMetric {
+  id        String   @id @default(uuid())
+  metricKey String   @unique
+  value     Json
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([metricKey])
+  @@index([expiresAt])
+}
