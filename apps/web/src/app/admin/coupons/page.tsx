@@ -1,12 +1,19 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AdminLayout } from '@/components/admin-layout';
+import { SkeletonStats, SkeletonTable } from '@/components/skeleton-loaders';
 import { Tag, Search, Plus, Edit2, Trash2, Copy, ToggleLeft, ToggleRight } from 'lucide-react';
 import { format } from 'date-fns';
 
 export default function AdminCouponsPage() {
   const [searchQuery, setSearchQuery] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setIsLoading(false), 1000);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Mock data - will be replaced with real API calls
   const coupons = [
@@ -134,6 +141,9 @@ export default function AdminCouponsPage() {
         </div>
 
         {/* Stats */}
+        {isLoading ? (
+          <SkeletonStats count={4} />
+        ) : (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
             <div className="flex items-center gap-3">
@@ -183,6 +193,7 @@ export default function AdminCouponsPage() {
             </div>
           </div>
         </div>
+        )}
 
         {/* Search and Filters */}
         <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
@@ -214,6 +225,9 @@ export default function AdminCouponsPage() {
         </div>
 
         {/* Coupons Table */}
+        {isLoading ? (
+          <SkeletonTable rows={5} columns={8} />
+        ) : (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -349,6 +363,7 @@ export default function AdminCouponsPage() {
             </div>
           </div>
         </div>
+        )}
       </div>
     </AdminLayout>
   );

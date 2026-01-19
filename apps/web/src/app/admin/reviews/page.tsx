@@ -1,13 +1,20 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AdminLayout } from '@/components/admin-layout';
+import { SkeletonStats, SkeletonList } from '@/components/skeleton-loaders';
 import { Star, Search, Check, X, Flag, Eye, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
 
 export default function AdminReviewsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('PENDING');
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setIsLoading(false), 1000);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Mock data - will be replaced with real API calls
   const reviews = [
@@ -120,6 +127,9 @@ export default function AdminReviewsPage() {
         </div>
 
         {/* Stats */}
+        {isLoading ? (
+          <SkeletonStats count={4} />
+        ) : (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
             <div className="flex items-center gap-3">
@@ -169,6 +179,7 @@ export default function AdminReviewsPage() {
             </div>
           </div>
         </div>
+        )}
 
         {/* Search and Filters */}
         <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
@@ -211,6 +222,9 @@ export default function AdminReviewsPage() {
         </div>
 
         {/* Reviews List */}
+        {isLoading ? (
+          <SkeletonList items={5} />
+        ) : (
         <div className="space-y-4">
           {reviews
             .filter(r => !selectedStatus || r.status === selectedStatus)
@@ -289,6 +303,7 @@ export default function AdminReviewsPage() {
               </div>
             ))}
         </div>
+        )}
 
         {/* Pagination */}
         <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200 flex items-center justify-between">

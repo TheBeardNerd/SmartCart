@@ -1,12 +1,19 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AdminLayout } from '@/components/admin-layout';
+import { SkeletonTable, SkeletonStats } from '@/components/skeleton-loaders';
 import { ShoppingCart, Search, Eye, Download } from 'lucide-react';
 import { format } from 'date-fns';
 
 export default function AdminOrdersPage() {
   const [searchQuery, setSearchQuery] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setIsLoading(false), 1000);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Mock data - will be replaced with real API calls
   const orders = [
@@ -84,6 +91,9 @@ export default function AdminOrdersPage() {
         </div>
 
         {/* Stats */}
+        {isLoading ? (
+          <SkeletonStats count={5} />
+        ) : (
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
             <p className="text-sm text-gray-600">Total Orders</p>
@@ -106,6 +116,7 @@ export default function AdminOrdersPage() {
             <p className="text-2xl font-bold text-green-900 mt-1">988</p>
           </div>
         </div>
+        )}
 
         {/* Search and Filters */}
         <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
@@ -138,6 +149,9 @@ export default function AdminOrdersPage() {
         </div>
 
         {/* Orders Table */}
+        {isLoading ? (
+          <SkeletonTable rows={5} columns={7} />
+        ) : (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -220,6 +234,7 @@ export default function AdminOrdersPage() {
             </div>
           </div>
         </div>
+        )}
       </div>
     </AdminLayout>
   );

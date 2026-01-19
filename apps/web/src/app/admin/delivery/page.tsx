@@ -1,13 +1,20 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AdminLayout } from '@/components/admin-layout';
+import { SkeletonList, SkeletonTable } from '@/components/skeleton-loaders';
 import { Truck, Search, Plus, MapPin, User, Clock, Package } from 'lucide-react';
 import { format } from 'date-fns';
 
 export default function AdminDeliveryPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTab, setSelectedTab] = useState<'deliveries' | 'slots' | 'drivers'>('deliveries');
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setIsLoading(false), 1000);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Mock delivery data
   const deliveries = [
@@ -222,6 +229,9 @@ export default function AdminDeliveryPage() {
             </div>
 
             {/* Deliveries List */}
+            {isLoading ? (
+              <SkeletonList items={5} />
+            ) : (
             <div className="space-y-4">
               {deliveries.map((delivery) => (
                 <div key={delivery.id} className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
@@ -262,11 +272,15 @@ export default function AdminDeliveryPage() {
                 </div>
               ))}
             </div>
+            )}
           </>
         )}
 
         {/* Slots Tab */}
         {selectedTab === 'slots' && (
+          isLoading ? (
+            <SkeletonTable rows={5} columns={6} />
+          ) : (
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -327,10 +341,14 @@ export default function AdminDeliveryPage() {
               </table>
             </div>
           </div>
+          )
         )}
 
         {/* Drivers Tab */}
         {selectedTab === 'drivers' && (
+          isLoading ? (
+            <SkeletonList items={6} />
+          ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {drivers.map((driver) => (
               <div key={driver.id} className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
@@ -369,6 +387,7 @@ export default function AdminDeliveryPage() {
               </div>
             ))}
           </div>
+          )
         )}
       </div>
     </AdminLayout>

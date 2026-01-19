@@ -1,11 +1,19 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AdminLayout } from '@/components/admin-layout';
+import { SkeletonTable } from '@/components/skeleton-loaders';
 import { Package, Search, Plus, Edit2, Trash2 } from 'lucide-react';
 
 export default function AdminProductsPage() {
   const [searchQuery, setSearchQuery] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Simulate API call
+  useEffect(() => {
+    const timer = setTimeout(() => setIsLoading(false), 1000);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Mock data - will be replaced with real API calls
   const products = [
@@ -60,6 +68,9 @@ export default function AdminProductsPage() {
         </div>
 
         {/* Products Table */}
+        {isLoading ? (
+          <SkeletonTable rows={5} columns={7} />
+        ) : (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -152,6 +163,7 @@ export default function AdminProductsPage() {
             </div>
           </div>
         </div>
+        )}
       </div>
     </AdminLayout>
   );
